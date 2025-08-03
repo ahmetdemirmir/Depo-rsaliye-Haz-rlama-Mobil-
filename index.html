@@ -8,8 +8,8 @@
     body { font-family: Arial, sans-serif; background: #f5f7fa; text-align: center; padding: 20px; }
     h1 { color: #2c3e50; margin-top: 10px; }
     #logo { max-width: 200px; margin-bottom: 20px; }
-    #filterBar { display:flex; justify-content:center; gap:10px; margin-bottom:15px; }
-    #filterBar button { padding:8px 14px; border-radius:6px; border:none; cursor:pointer; background:#34495e; color:#fff; font-weight:bold; }
+    #filterBar { display:flex; justify-content:center; gap:10px; margin-bottom:15px; flex-wrap:wrap;}
+    #filterBar button { padding:8px 14px; border-radius:6px; border:none; cursor:pointer; background:#34495e; color:#fff; font-weight:bold; margin-bottom:10px; min-width:120px;}
     #fileInput, #manualBarcode, button { margin: 10px 0; padding: 10px; font-size: 16px; }
     #camera { width: 95%; max-width: 320px; border: 2px solid #3498db; border-radius: 8px; margin: 10px auto; height: 200px; display:none; }
     #productList { margin-top: 20px; text-align: left; }
@@ -64,6 +64,18 @@
     .reject { background: #e74c3c; color: white; }
     .item.complete { background-color: #d4edda; border-color: #27ae60; }
     .item.incomplete { background-color: #fff3cd; border-color: #f1c40f; }
+
+    /* Kamera ve yükleme butonları mobil uyum */
+    #topBtnBar {
+      display: flex; flex-wrap: wrap; gap:10px; justify-content:center; margin-bottom:10px;
+    }
+    #topBtnBar button { min-width:150px; margin-bottom:5px; }
+    @media (max-width: 600px) {
+      #topBtnBar { flex-direction: row; gap: 10px 8px;}
+      #topBtnBar button { width: 46%; min-width:120px; margin-bottom: 8px;}
+      #filterBar { flex-wrap: wrap; }
+      #filterBar button { min-width:120px; font-size:14.5px; }
+    }
   </style>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -74,12 +86,14 @@
     <img id="logo" src="logo.png" alt="Demir Kırtasiye Logo">
     <h1>Demir Kırtasiye Transfer İrsaliye Hazırlama</h1>
   </div>
-  <button id="loadFromSheetsBtn">Google Sheets'ten Ürünleri Yükle</button>
-  <input type="file" id="fileInput" accept=".xlsx,.csv"><br>
+  <div id="topBtnBar">
+    <button id="loadFromSheetsBtn">Google Sheets'ten Ürünleri Yükle</button>
+    <label><input type="file" id="fileInput" accept=".xlsx,.csv" style="display:none;"><span style="vertical-align:middle;cursor:pointer;" class="btnfile"><b>Dosya Seç</b></span></label>
+    <button id="startCameraBtn">📷 Kamerayı Aç</button>
+    <button id="stopCameraBtn">📷 Kamerayı Kapat</button>
+    <button id="switchBtn">📷 Kamerayı Değiştir</button>
+  </div>
   <input type="text" id="manualBarcode" placeholder="Barkodu yazıp Enter’a bas" onkeypress="if(event.key==='Enter'){checkBarcode(this.value)}"><br>
-  <button id="startCameraBtn">📷 Kamerayı Aç</button>
-  <button id="stopCameraBtn">📷 Kamerayı Kapat</button>
-  <button id="switchBtn">📷 Kamerayı Değiştir</button>
   <div id="camera" style="display:none;"></div>
   <div id="filterBar">
     <button onclick="filterByBranch('Ataevler')">Ataevler</button>
@@ -130,6 +144,10 @@
     const errorOverlay = document.getElementById('errorOverlay');
     const successSound = document.getElementById('successSound');
     const errorSound = document.getElementById('errorSound');
+
+    // Dosya seç labelı gerçek inputu tetikler
+    document.querySelector('.btnfile').onclick = function(){ document.getElementById('fileInput').click(); };
+
     function checkBarcode(code) {
       const found = products.find(p => p.Barkodu == code);
       if (found) {
@@ -176,10 +194,10 @@
             };
           }
           grouped[barkod].Adet += Number(row.ADET || row.Adet || 0);
-          grouped[barkod].Ataevler += Number(row.ATAEVLER || 0);
-          grouped[barkod].Merkez += Number(row.MERKEZ || 0);
-          grouped[barkod].Fethiye += Number(row.FETHİYE || row.FETHIYE || 0);
-          grouped[barkod].Topkapı += Number(row.TOPKAPI || 0);
+          grouped[barkod].Ataevler += Number(row.Ataevler || row.ATAEVLER || 0);
+          grouped[barkod].Merkez += Number(row.Merkez || row.MERKEZ || 0);
+          grouped[barkod].Fethiye += Number(row.Fethiye || row.FETHİYE || row.FETHIYE || 0);
+          grouped[barkod].Topkapı += Number(row.Topkapı || row.TOPKAPI || 0);
           grouped[barkod]["Depoda Kalan"] += Number(row["Depoda Kalan"] || 0);
         });
         products = Object.values(grouped);
@@ -298,6 +316,7 @@
     document.getElementById('closeBranchPopup').onclick = () => {
       branchPopupOverlay.style.display = 'none';
     };
+
     // =======================
     // GOOGLE SHEETS CSV OKUMA
     // =======================
@@ -309,12 +328,17 @@
           let rows = parsed.data;
           const grouped = {};
           rows.forEach(row => {
-            const barkod = row['Barkodu'] || row['BARKODU'] || row['Barkod'] || "";
+            // -- Case-insensitive field match
+            function getCI(obj, field) {
+              const key = Object.keys(obj).find(k => k.toLowerCase() === field.toLowerCase());
+              return key ? obj[key] : "";
+            }
+            const barkod = getCI(row, 'Barkodu') || getCI(row, 'BARKODU') || getCI(row, 'Barkod');
             if (!barkod) return;
             if (!grouped[barkod]) {
               grouped[barkod] = {
                 Barkodu: barkod,
-                Adi: row['Adı'] || row['Stok Adı'] || row['ADI'] || row['Stok adı'] || "",
+                Adi: getCI(row, 'Adı') || getCI(row, 'Stok Adı') || getCI(row, 'ADI') || getCI(row, 'Stok adı') || "",
                 Adet: 0,
                 Ataevler: 0,
                 Merkez: 0,
@@ -324,18 +348,19 @@
                 scannedStatus: {}
               };
             }
-            grouped[barkod].Adet += Number(row['ADET'] || row['Adet'] || 0);
-            grouped[barkod].Ataevler += Number(row['Ataevler'] || row['ATAEVLER'] || 0);
-            grouped[barkod].Merkez += Number(row['Merkez'] || row['MERKEZ'] || 0);
-            grouped[barkod].Fethiye += Number(row['Fethiye'] || row['FETHİYE'] || row['FETHIYE'] || 0);
-            grouped[barkod].Topkapı += Number(row['Topkapı'] || row['TOPKAPI'] || 0);
-            grouped[barkod]["Depoda Kalan"] += Number(row["Depoda Kalan"] || 0);
+            grouped[barkod].Adet += Number(getCI(row, 'ADET') || getCI(row, 'Adet') || 0);
+            grouped[barkod].Ataevler += Number(getCI(row, 'Ataevler') || getCI(row, 'ATAEVLER') || 0);
+            grouped[barkod].Merkez += Number(getCI(row, 'Merkez') || getCI(row, 'MERKEZ') || 0);
+            grouped[barkod].Fethiye += Number(getCI(row, 'Fethiye') || getCI(row, 'FETHİYE') || getCI(row, 'FETHIYE') || 0);
+            grouped[barkod].Topkapı += Number(getCI(row, 'Topkapı') || getCI(row, 'TOPKAPI') || 0);
+            grouped[barkod]["Depoda Kalan"] += Number(getCI(row, "Depoda Kalan") || 0);
           });
           products = Object.values(grouped);
           renderProducts();
         })
         .catch(e => alert("Sheets okuma hatası: " + e));
     };
+
     // =======================
     // KAMERA ALT YAPISI
     // =======================
@@ -343,6 +368,7 @@
     let cameraDevices = [];
     let cameraRunning = false;
     let currentCameraIndex = 0;
+
     async function getCameraDevices() {
       cameraDevices = await Html5Qrcode.getCameras();
       if (!cameraDevices.length) {
@@ -351,6 +377,7 @@
       }
       return true;
     }
+
     document.getElementById('startCameraBtn').onclick = async () => {
       if (cameraRunning) return;
       if (!await getCameraDevices()) return;
@@ -376,6 +403,7 @@
         cameraRunning = false;
       });
     };
+
     document.getElementById('stopCameraBtn').onclick = async () => {
       if (html5QrCode && cameraRunning) {
         await html5QrCode.stop();
@@ -383,6 +411,7 @@
         document.getElementById("camera").style.display = "none";
       }
     };
+
     document.getElementById('switchBtn').onclick = async () => {
       if (!await getCameraDevices()) return;
       if (cameraDevices.length < 2) {
@@ -394,7 +423,8 @@
         await html5QrCode.stop();
         cameraRunning = false;
         document.getElementById("camera").style.display = "none";
-        setTimeout(() => document.getElementById('startCameraBtn').click(), 300);
+        // Yeni kamera ile başlat
+        setTimeout(() => document.getElementById('startCameraBtn').click(), 350);
       } else {
         document.getElementById('startCameraBtn').click();
       }
