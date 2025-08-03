@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Demir Kırtasiye Transfer İrsaliye Hazırlama</title>
   <style>
+    /* --- Senin mevcut CSS kodun, aynen bırakıldı --- */
     body { font-family: Arial, sans-serif; background: #f5f7fa; text-align: center; padding: 20px; }
     h1 { color: #2c3e50; margin-top: 10px; }
     #logo { max-width: 200px; margin-bottom: 20px; }
@@ -75,7 +76,6 @@
       #filterBar { flex-wrap: wrap; }
       #filterBar button { min-width:120px; font-size:14.5px; }
     }
-    /* Arama popup için */
     #searchInput { width:92%; font-size:17px; padding:10px; margin-bottom:8px; border-radius:7px; border:1px solid #ccc; text-align:center;}
     #searchResults { list-style:none; margin:0; padding:0; max-height:220px; overflow-y:auto;}
     #searchResults li { padding:10px 5px; border-bottom:1px solid #e2e2e2; font-size:17px; text-align:left; cursor:pointer;}
@@ -147,13 +147,14 @@
   <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
   <audio id="errorSound" src="https://actions.google.com/sounds/v1/alarms/beep_long.ogg"></audio>
   <script>
+    // --- Tüm kodun aynı kalacak şekilde sadece localStorage entegrasyonu eklendi ---
     let products = [];
     let currentProduct = null;
     let selectedBranch = null;
     let currentFilter = null;
     let unassignedFilter = false;
     let barcodeInput = document.getElementById('manualBarcode');
-    let autoRestartCamera = false; // Kamera her popup sonrası otomatik başlatılsın mı
+    let autoRestartCamera = false;
     const popupOverlay = document.getElementById('popupOverlay');
     const popupProductName = document.getElementById('popupProductName');
     const popupProductDesc = document.getElementById('popupProductDesc');
@@ -162,6 +163,22 @@
     const successSound = document.getElementById('successSound');
     const errorSound = document.getElementById('errorSound');
     document.querySelector('.btnfile').onclick = function(){ document.getElementById('fileInput').click(); };
+
+    // ----- LOCALSTORAGE ENTEGRASYONU EKLENDİ -----
+    function saveProgress() {
+      try { localStorage.setItem('depo_transfer_progress', JSON.stringify(products)); } catch(e) {}
+    }
+    function loadProgress() {
+      try {
+        let data = localStorage.getItem('depo_transfer_progress');
+        if(data) {
+          products = JSON.parse(data);
+          renderProducts();
+        }
+      } catch(e){}
+    }
+    // ---------------------------------------------
+
     function checkBarcode(code) {
       const found = products.find(p => p.Barkodu == code);
       if (found) {
@@ -218,6 +235,7 @@
         });
         products = Object.values(grouped);
         renderProducts();
+        saveProgress();  // HER DOSYA YÜKLEMESİNDEN SONRA KAYIT!
       };
       reader.readAsArrayBuffer(file);
     }
@@ -284,6 +302,7 @@
         else if (anyRejected) div.classList.add('incomplete');
         container.appendChild(div);
       });
+      saveProgress(); // HER GÖRÜNÜM SONRASI KAYIT!
     }
     function openPopup(product) {
       currentProduct = product;
@@ -383,10 +402,11 @@
           });
           products = Object.values(grouped);
           renderProducts();
+          saveProgress();  // SHEETS'TEN SONRA DA KAYDET
         })
         .catch(e => alert("Sheets okuma hatası: " + e));
     };
-    // KAMERA ALT YAPISI
+    // KAMERA ALT YAPISI (Senin kodun)
     let html5QrCode = null;
     let cameraDevices = [];
     let cameraRunning = false;
@@ -466,6 +486,7 @@
       }
     }
     window.onload = function() {
+      loadProgress();  // SAYFA YÜKLENİNCE VARSA OTOMATİK YÜKLE
       safeFocusBarcodeInput();
     }
     // ARAMA POPUP
