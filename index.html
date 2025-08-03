@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Demir Kırtasiye Transfer İrsaliye Hazırlama</title>
   <style>
-    /* --- Senin mevcut CSS kodun, aynen bırakıldı --- */
     body { font-family: Arial, sans-serif; background: #f5f7fa; text-align: center; padding: 20px; }
     h1 { color: #2c3e50; margin-top: 10px; }
     #logo { max-width: 200px; margin-bottom: 20px; }
@@ -22,20 +21,22 @@
     .branch-tag.pending { background: #bdc3c7; color: #2c3e50; }
     .branch-tag.approved { background: #27ae60; color: white; }
     .branch-tag.rejected { background: #e74c3c; color: white; }
-    #popupOverlay, #branchPopupOverlay, #errorOverlay, #searchPopup {
+    #popupOverlay, #branchPopupOverlay, #errorOverlay, #searchPopup, #exportPopup, #importPopup, #overwritePopup {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 999;
     }
-    #popupContent, #branchPopupContent, #errorContent, #searchContent {
+    #popupContent, #branchPopupContent, #errorContent, #searchContent, #exportContent, #importContent, #overwriteContent {
       background: #ffffff; padding: 30px; border-radius: 16px; width: 90%; max-width: 550px;
       text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.3);
     }
-    #searchContent { max-width:440px;padding:18px 8px 20px 8px; }
+    #searchContent, #exportContent, #importContent, #overwriteContent { max-width:440px;padding:18px 8px 20px 8px; }
     #popupContent { border: 3px solid #27ae60; background: #eafaf1; }
     #errorContent { border: 3px solid #e74c3c; background: #fdecea; }
     #branchPopupContent { border: 3px solid #8e44ad; }
-    #popupContent h2, #branchPopupContent h2, #errorContent h2, #searchContent h2 { font-size: 26px; margin-bottom: 10px; font-weight:bold; }
-    #popupContent h3, #branchPopupContent h3, #errorContent h3 { font-size: 22px; margin-bottom: 15px; font-weight:bold; }
+    #popupContent h2, #branchPopupContent h2, #errorContent h2, #searchContent h2,
+    #exportContent h2, #importContent h2, #overwriteContent h2 { font-size: 26px; margin-bottom: 10px; font-weight:bold; }
+    #popupContent h3, #branchPopupContent h3, #errorContent h3, #searchContent h3,
+    #exportContent h3, #importContent h3, #overwriteContent h3 { font-size: 22px; margin-bottom: 15px; font-weight:bold; }
     #popupTable tr.approved-row { background-color: #2ecc71; color: white; }
     #popupTable tr.pending-row { background-color: #e74c3c; color: white; }
     #popupTable td:first-child {
@@ -80,6 +81,29 @@
     #searchResults { list-style:none; margin:0; padding:0; max-height:220px; overflow-y:auto;}
     #searchResults li { padding:10px 5px; border-bottom:1px solid #e2e2e2; font-size:17px; text-align:left; cursor:pointer;}
     #searchResults li:hover { background:#ecf0f1; }
+    /* === ŞUBE % BAR (YENİ) === */
+    .branch-progress-bar {
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 6px;
+      height: 13px; width: 70px;
+      border: 1px solid #bbb; border-radius: 7px; overflow: hidden;
+      background: #eee;
+    }
+    .branch-progress-fill {
+      height: 100%;
+      display: block;
+      background: linear-gradient(90deg, #27ae60 60%, #2ecc71 100%);
+      transition: width .25s;
+    }
+    .branch-progress-label {
+      font-size: 12.5px; margin-left:2px;
+      font-weight: bold; vertical-align: middle;
+    }
+    .branch-progress-bar.done {
+      background: #c7f7d0;
+      border-color: #26b07c;
+    }
   </style>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -98,6 +122,9 @@
     <button id="stopCameraBtn">📷 Kamerayı Kapat</button>
     <button id="switchBtn">📷 Kamerayı Değiştir</button>
     <button id="openSearchBtn">🔍 Barkod/Ad Ara</button>
+    <!-- === EKLEMELER (EXPORT/IMPORT) === -->
+    <button id="exportBtn" style="background:#ffd700;color:#222;">İlerlemeyi Dışa Aktar</button>
+    <button id="importBtn" style="background:#1abc9c;color:#fff;">İlerleme Yükle</button>
   </div>
   <input type="text" id="manualBarcode" placeholder="Barkodu yazıp Enter’a bas" onkeypress="if(event.key==='Enter'){checkBarcode(this.value)}"><br>
   <div id="camera" style="display:none;"></div>
@@ -144,10 +171,40 @@
       <button onclick="closeSearchPopup()">Kapat</button>
     </div>
   </div>
+  <!-- === EKLEMELER: EXPORT/IMPORT MODAL === -->
+  <div id="exportPopup">
+    <div id="exportContent">
+      <h2>İlerlemeyi Dışa Aktar</h2>
+      <p>Aşağıdaki veriyi <b>json</b> dosyası olarak kaydedebilirsiniz.</p>
+      <textarea id="exportData" style="width:99%;height:110px;"></textarea>
+      <br>
+      <button onclick="downloadExport()">İndir</button>
+      <button onclick="closeExportPopup()">Kapat</button>
+    </div>
+  </div>
+  <div id="importPopup">
+    <div id="importContent">
+      <h2>İlerleme Yükle</h2>
+      <input type="file" id="importFileInput" accept=".json" style="margin-bottom:12px;"><br>
+      <textarea id="importData" style="width:99%;height:110px;" placeholder="Yapıştır veya dosya seç"></textarea>
+      <br>
+      <button onclick="loadImport()">Yükle</button>
+      <button onclick="closeImportPopup()">Kapat</button>
+    </div>
+  </div>
+  <!-- === YENİ: OVERWRITE/RESET POPUP === -->
+  <div id="overwritePopup">
+    <div id="overwriteContent">
+      <h2>Dikkat!</h2>
+      <p>Mevcut işaretlemeler ve ilerleme sıfırlanacak.<br>Devam etmek istediğine emin misin?</p>
+      <button id="overwriteYesBtn" style="background:#e74c3c;color:white;">Evet, sıfırla ve devam et</button>
+      <button onclick="closeOverwritePopup()">Vazgeç</button>
+    </div>
+  </div>
   <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
   <audio id="errorSound" src="https://actions.google.com/sounds/v1/alarms/beep_long.ogg"></audio>
   <script>
-    // --- Tüm kodun aynı kalacak şekilde sadece localStorage entegrasyonu eklendi ---
+    // ====================== MEVCUT DEĞİŞKENLER =========================
     let products = [];
     let currentProduct = null;
     let selectedBranch = null;
@@ -163,22 +220,72 @@
     const successSound = document.getElementById('successSound');
     const errorSound = document.getElementById('errorSound');
     document.querySelector('.btnfile').onclick = function(){ document.getElementById('fileInput').click(); };
-
-    // ----- LOCALSTORAGE ENTEGRASYONU EKLENDİ -----
+    // ====================== EXPORT/IMPORT YENİ =========================
+    // -- localStorage Key
+    const STORAGE_KEY = "demirkirtasiye_transfer_v1";
+    // -- Export
+    document.getElementById('exportBtn').onclick = () => {
+      const toExport = {
+        products, progressBar: document.getElementById('progressBar').innerHTML
+      };
+      document.getElementById('exportData').value = JSON.stringify(toExport, null, 2);
+      document.getElementById('exportPopup').style.display = 'flex';
+    };
+    function closeExportPopup() { document.getElementById('exportPopup').style.display = 'none'; }
+    function downloadExport() {
+      const text = document.getElementById('exportData').value;
+      const blob = new Blob([text], {type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = "irsaliye-ilerleme.json";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    // -- Import
+    document.getElementById('importBtn').onclick = () => {
+      document.getElementById('importData').value = "";
+      document.getElementById('importFileInput').value = "";
+      document.getElementById('importPopup').style.display = 'flex';
+    };
+    function closeImportPopup() { document.getElementById('importPopup').style.display = 'none'; }
+    function loadImport() {
+      let json;
+      try {
+        json = document.getElementById('importData').value;
+        if (!json) return alert("Boş veri!");
+        const parsed = JSON.parse(json);
+        if (!parsed.products) return alert("Hatalı veri.");
+        products = parsed.products;
+        renderProducts();
+        closeImportPopup();
+        saveProgress();
+      } catch(e) { alert("Geçersiz veya hatalı json!"); }
+    }
+    document.getElementById('importFileInput').onchange = function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        document.getElementById('importData').value = ev.target.result;
+      };
+      reader.readAsText(file, "UTF-8");
+    }
+    // -- Kayıt
     function saveProgress() {
-      try { localStorage.setItem('depo_transfer_progress', JSON.stringify(products)); } catch(e) {}
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({products})); } catch(e){}
     }
     function loadProgress() {
       try {
-        let data = localStorage.getItem('depo_transfer_progress');
-        if(data) {
-          products = JSON.parse(data);
+        const data = localStorage.getItem(STORAGE_KEY);
+        if (!data) return;
+        const obj = JSON.parse(data);
+        if(obj.products) {
+          products = obj.products;
           renderProducts();
         }
       } catch(e){}
     }
-    // ---------------------------------------------
-
+    // ====================== MEVCUT KODUN DEVAMI =========================
     function checkBarcode(code) {
       const found = products.find(p => p.Barkodu == code);
       if (found) {
@@ -198,7 +305,27 @@
       safeFocusBarcodeInput();
       if (autoRestartCamera) startCameraAuto();
     }
-    document.getElementById('fileInput').addEventListener('change', handleFile);
+    // ====================== SIFIRLAMA ONAY POPUP YENİ =========================
+    function openOverwritePopup(action) {
+      document.getElementById('overwritePopup').style.display = "flex";
+      document.getElementById('overwriteYesBtn').onclick = function() {
+        document.getElementById('overwritePopup').style.display = "none";
+        action();
+      }
+    }
+    function closeOverwritePopup() {
+      document.getElementById('overwritePopup').style.display = "none";
+    }
+    // ================ Dosya yüklerken ilerleme varsa onayla (YENİ) ===========
+    let pendingFileLoad = null;
+    document.getElementById('fileInput').addEventListener('change', function(event) {
+      if (products.length > 0) {
+        pendingFileLoad = () => handleFile(event);
+        openOverwritePopup(() => { handleFile(event); products=[]; });
+      } else {
+        handleFile(event);
+      }
+    });
     function handleFile(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -235,25 +362,67 @@
         });
         products = Object.values(grouped);
         renderProducts();
-        saveProgress();  // HER DOSYA YÜKLEMESİNDEN SONRA KAYIT!
+        saveProgress();
       };
       reader.readAsArrayBuffer(file);
     }
-    function filterByBranch(branch) {
-      currentFilter = branch;
-      unassignedFilter = false;
-      renderProducts();
+    // ============ Google Sheets Yükleme Öncesi Uyarı (EK) ===========
+    document.getElementById('loadFromSheetsBtn').onclick = function() {
+      if (products.length > 0) {
+        openOverwritePopup(() => { loadFromSheets(); products=[]; });
+      } else {
+        loadFromSheets();
+      }
+    };
+    function loadFromSheets() {
+      fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vRK7MAw7CognKnLh-ez67TDVZBvdgxSNJ5B4P-e2KbHgF2uqnKC4V3atPq485Bqmg/pub?output=csv")
+        .then(res => res.text())
+        .then(csvText => {
+          let parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+          let rows = parsed.data;
+          const grouped = {};
+          rows.forEach(row => {
+            function getCI(obj, field) {
+              const key = Object.keys(obj).find(k => k.toLowerCase() === field.toLowerCase());
+              return key ? obj[key] : "";
+            }
+            const barkod = getCI(row, 'Barkodu') || getCI(row, 'BARKODU') || getCI(row, 'Barkod');
+            if (!barkod) return;
+            if (!grouped[barkod]) {
+              grouped[barkod] = {
+                Barkodu: barkod,
+                Adi: getCI(row, 'Adı') || getCI(row, 'Stok Adı') || getCI(row, 'ADI') || getCI(row, 'Stok adı') || "",
+                Adet: 0,
+                Ataevler: 0,
+                Merkez: 0,
+                Fethiye: 0,
+                Topkapı: 0,
+                "Depoda Kalan": 0,
+                scannedStatus: {}
+              };
+            }
+            grouped[barkod].Adet += Number(getCI(row, 'ADET') || getCI(row, 'Adet') || 0);
+            grouped[barkod].Ataevler += Number(getCI(row, 'Ataevler') || getCI(row, 'ATAEVLER') || 0);
+            grouped[barkod].Merkez += Number(getCI(row, 'Merkez') || getCI(row, 'MERKEZ') || 0);
+            grouped[barkod].Fethiye += Number(getCI(row, 'Fethiye') || getCI(row, 'FETHİYE') || getCI(row, 'FETHIYE') || 0);
+            grouped[barkod].Topkapı += Number(getCI(row, 'Topkapı') || getCI(row, 'TOPKAPI') || 0);
+            grouped[barkod]["Depoda Kalan"] += Number(getCI(row, "Depoda Kalan") || 0);
+          });
+          products = Object.values(grouped);
+          renderProducts();
+          saveProgress();
+        })
+        .catch(e => alert("Sheets okuma hatası: " + e));
     }
-    function clearFilter() {
-      currentFilter = null;
-      unassignedFilter = false;
-      renderProducts();
+    // ====================== UX İYİLEŞTİRME KAMERA SCROLL ======================
+    function scrollToCamera() {
+      if (!isMobile()) return;
+      setTimeout(() => {
+        const cam = document.getElementById("camera");
+        if (cam && cam.style.display !== "none") cam.scrollIntoView({behavior: "smooth", block:"center"});
+      }, 400);
     }
-    function showUnassigned() {
-      unassignedFilter = true;
-      currentFilter = null;
-      renderProducts();
-    }
+    // ====================== PROGRESS BAR % (EK) =======================
     function renderProducts() {
       const container = document.getElementById('productList');
       container.innerHTML = '';
@@ -263,12 +432,15 @@
         const filtered = products.filter(p => p[branch] && p[branch] > 0);
         const total = filtered.length;
         const approved = filtered.filter(p => p.scannedStatus[branch] === 'approved').length;
+        const percent = total ? Math.round((approved/total)*100) : 0;
         const done = approved === total && total > 0;
-        if(total > 0) {
-          barHtml += `<span style="margin-right:14px;">
-            <b>${branch}:</b> ${approved}/${total} ${done ? "&#10003;" : ""}
-          </span>`;
-        }
+        barHtml += `<span style="margin-right:16px;">
+          <b>${branch}:</b>
+          <span class="branch-progress-bar${done?' done':''}">
+            <span class="branch-progress-fill" style="width:${percent}%;background:${done?'#26d07c':'#27ae60'}"></span>
+          </span>
+          <span class="branch-progress-label">${approved}/${total} (%${percent})${done?" ✔️":""}</span>
+        </span>`;
       });
       document.getElementById('progressBar').innerHTML = barHtml;
       products.forEach(p => {
@@ -302,7 +474,23 @@
         else if (anyRejected) div.classList.add('incomplete');
         container.appendChild(div);
       });
-      saveProgress(); // HER GÖRÜNÜM SONRASI KAYIT!
+      saveProgress();
+    }
+    // ====================== MEVCUT KODUN DEVAMI =========================
+    function filterByBranch(branch) {
+      currentFilter = branch;
+      unassignedFilter = false;
+      renderProducts();
+    }
+    function clearFilter() {
+      currentFilter = null;
+      unassignedFilter = false;
+      renderProducts();
+    }
+    function showUnassigned() {
+      unassignedFilter = true;
+      currentFilter = null;
+      renderProducts();
     }
     function openPopup(product) {
       currentProduct = product;
@@ -365,48 +553,7 @@
       safeFocusBarcodeInput();
       if (autoRestartCamera) setTimeout(startCameraAuto, 500);
     };
-    // GOOGLE SHEETS CSV OKUMA
-    document.getElementById('loadFromSheetsBtn').onclick = function() {
-      fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vRK7MAw7CognKnLh-ez67TDVZBvdgxSNJ5B4P-e2KbHgF2uqnKC4V3atPq485Bqmg/pub?output=csv")
-        .then(res => res.text())
-        .then(csvText => {
-          let parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
-          let rows = parsed.data;
-          const grouped = {};
-          rows.forEach(row => {
-            function getCI(obj, field) {
-              const key = Object.keys(obj).find(k => k.toLowerCase() === field.toLowerCase());
-              return key ? obj[key] : "";
-            }
-            const barkod = getCI(row, 'Barkodu') || getCI(row, 'BARKODU') || getCI(row, 'Barkod');
-            if (!barkod) return;
-            if (!grouped[barkod]) {
-              grouped[barkod] = {
-                Barkodu: barkod,
-                Adi: getCI(row, 'Adı') || getCI(row, 'Stok Adı') || getCI(row, 'ADI') || getCI(row, 'Stok adı') || "",
-                Adet: 0,
-                Ataevler: 0,
-                Merkez: 0,
-                Fethiye: 0,
-                Topkapı: 0,
-                "Depoda Kalan": 0,
-                scannedStatus: {}
-              };
-            }
-            grouped[barkod].Adet += Number(getCI(row, 'ADET') || getCI(row, 'Adet') || 0);
-            grouped[barkod].Ataevler += Number(getCI(row, 'Ataevler') || getCI(row, 'ATAEVLER') || 0);
-            grouped[barkod].Merkez += Number(getCI(row, 'Merkez') || getCI(row, 'MERKEZ') || 0);
-            grouped[barkod].Fethiye += Number(getCI(row, 'Fethiye') || getCI(row, 'FETHİYE') || getCI(row, 'FETHIYE') || 0);
-            grouped[barkod].Topkapı += Number(getCI(row, 'Topkapı') || getCI(row, 'TOPKAPI') || 0);
-            grouped[barkod]["Depoda Kalan"] += Number(getCI(row, "Depoda Kalan") || 0);
-          });
-          products = Object.values(grouped);
-          renderProducts();
-          saveProgress();  // SHEETS'TEN SONRA DA KAYDET
-        })
-        .catch(e => alert("Sheets okuma hatası: " + e));
-    };
-    // KAMERA ALT YAPISI (Senin kodun)
+    // KAMERA ALT YAPISI
     let html5QrCode = null;
     let cameraDevices = [];
     let cameraRunning = false;
@@ -428,6 +575,7 @@
       document.getElementById("camera").style.display = "block";
       barcodeInput.blur();
       barcodeInput.setAttribute('readonly', true);
+      scrollToCamera();
       html5QrCode.start(
         camId,
         { fps: 15, qrbox: {width: 220, height: 140} },
@@ -486,7 +634,7 @@
       }
     }
     window.onload = function() {
-      loadProgress();  // SAYFA YÜKLENİNCE VARSA OTOMATİK YÜKLE
+      loadProgress();
       safeFocusBarcodeInput();
     }
     // ARAMA POPUP
