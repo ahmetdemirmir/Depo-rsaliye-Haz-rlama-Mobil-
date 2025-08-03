@@ -7,49 +7,45 @@
   <style>
     body { font-family: Arial, sans-serif; background: #f5f7fa; text-align: center; padding: 20px; }
     h1 { color: #2c3e50; margin-top: 10px; }
-    #logo { max-width: 200px; margin-bottom: 20px; }
-    #filterBar { display:flex; justify-content:center; gap:10px; margin-bottom:15px; flex-wrap:wrap;}
-    #filterBar button { padding:8px 14px; border-radius:6px; border:none; cursor:pointer; background:#34495e; color:#fff; font-weight:bold; margin-bottom:10px; min-width:120px;}
+    #logo { max-width: 170px; margin-bottom: 16px; }
+    #filterBar { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:15px; }
+    #filterBar button { padding:8px 14px; border-radius:6px; border:none; cursor:pointer; background:#34495e; color:#fff; font-weight:bold; margin:3px; }
     #fileInput, #manualBarcode, button { margin: 10px 0; padding: 10px; font-size: 16px; }
     #camera { width: 95%; max-width: 320px; border: 2px solid #3498db; border-radius: 8px; margin: 10px auto; height: 200px; display:none; }
     #productList { margin-top: 20px; text-align: left; }
     .item { display: flex; flex-direction: column; padding: 12px; margin: 6px 0; border: 2px solid #ddd; background-color: #fdfdfd; border-radius: 8px; cursor: pointer; }
     .product-header { display: flex; justify-content: space-between; font-size: 17px; color:#2c3e50; }
     .product-header span:nth-child(2) { font-size: 20px; color: #c0392b; font-weight:bold; }
+
+    /* Şube durum etiketleri */
     .branch-status { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
     .branch-tag { padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 14px; }
     .branch-tag.pending { background: #bdc3c7; color: #2c3e50; }
     .branch-tag.approved { background: #27ae60; color: white; }
     .branch-tag.rejected { background: #e74c3c; color: white; }
+
+    /* Popup stilleri */
     #popupOverlay, #branchPopupOverlay, #errorOverlay, #searchPopup {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 999;
     }
-    #popupContent, #branchPopupContent, #errorContent, #searchContent {
+    #popupContent, #branchPopupContent, #errorContent, #searchPopupContent {
       background: #ffffff; padding: 30px; border-radius: 16px; width: 90%; max-width: 550px;
       text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.3);
     }
-    #searchContent { max-width:440px;padding:18px 8px 20px 8px; }
     #popupContent { border: 3px solid #27ae60; background: #eafaf1; }
     #errorContent { border: 3px solid #e74c3c; background: #fdecea; }
     #branchPopupContent { border: 3px solid #8e44ad; }
-    #popupContent h2, #branchPopupContent h2, #errorContent h2, #searchContent h2 { font-size: 26px; margin-bottom: 10px; font-weight:bold; }
-    #popupContent h3, #branchPopupContent h3, #errorContent h3 { font-size: 22px; margin-bottom: 15px; font-weight:bold; }
+    #searchPopupContent { border: 3px solid #3498db; }
+    #popupContent h2, #branchPopupContent h2, #errorContent h2, #searchPopupContent h2 { font-size: 26px; margin-bottom: 10px; font-weight:bold; }
+    #popupContent h3, #branchPopupContent h3, #errorContent h3, #searchPopupContent h3 { font-size: 22px; margin-bottom: 15px; font-weight:bold; }
+
+    /* İlk popup tablosundaki satır renkleri – CANLI hale getirildi */
     #popupTable tr.approved-row { background-color: #2ecc71; color: white; }
     #popupTable tr.pending-row { background-color: #e74c3c; color: white; }
-    #popupTable td:first-child {
-      font-size: 24px;
-      font-weight: bold;
-      padding: 14px;
-      border: 2px solid #3498db;
-      border-radius: 8px;
-    }
-    #popupTable td:last-child {
-      font-size: 30px;
-      color: #fff;
-      font-weight: bold;
-      padding: 14px;
-    }
+    #popupTable td:first-child { font-size: 24px; font-weight: bold; padding: 14px; border: 2px solid #3498db; border-radius: 8px; }
+    #popupTable td:last-child { font-size: 30px; color: #fff; font-weight: bold; padding: 14px; }
+
     #branchQty {
       font-size: 48px;
       font-weight: bold;
@@ -60,47 +56,56 @@
       border-radius: 10px;
       background: #fceae8;
     }
+
     .popup-btn { padding: 8px 14px; font-size: 16px; border: none; border-radius: 6px; margin: 6px; cursor: pointer; }
     .approve { background: #27ae60; color: white; }
     .reject { background: #e74c3c; color: white; }
+
     .item.complete { background-color: #d4edda; border-color: #27ae60; }
     .item.incomplete { background-color: #fff3cd; border-color: #f1c40f; }
-    #topBtnBar {
-      display: flex; flex-wrap: wrap; gap:10px; justify-content:center; margin-bottom:10px;
-    }
-    #topBtnBar button { min-width:150px; margin-bottom:5px; }
+
+    /* Sayaçlar mobilde alt alta gelsin */
+    #counters {display: flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-bottom:10px;}
+    .counterBox {background:#eee; border-radius:9px; padding:10px 16px; font-size:17px; font-weight:bold; min-width:105px;}
+    .counterBox span {font-size:18px; color:#c0392b;}
     @media (max-width: 600px) {
-      #topBtnBar { flex-direction: row; gap: 10px 8px;}
-      #topBtnBar button { width: 46%; min-width:120px; margin-bottom: 8px;}
       #filterBar { flex-wrap: wrap; }
-      #filterBar button { min-width:120px; font-size:14.5px; }
+      #counters { flex-direction:column; align-items:center;}
     }
-    /* Arama popup için */
-    #searchInput { width:92%; font-size:17px; padding:10px; margin-bottom:8px; border-radius:7px; border:1px solid #ccc; text-align:center;}
-    #searchResults { list-style:none; margin:0; padding:0; max-height:220px; overflow-y:auto;}
-    #searchResults li { padding:10px 5px; border-bottom:1px solid #e2e2e2; font-size:17px; text-align:left; cursor:pointer;}
-    #searchResults li:hover { background:#ecf0f1; }
+    /* Arama Popup */
+    #searchPopupContent input[type=text] { width: 80%; padding: 10px; border-radius:8px; border:1px solid #aaa; font-size:18px; margin-bottom:15px;}
+    #searchResults {list-style:none;padding:0;max-height:200px;overflow-y:auto;text-align:left;}
+    #searchResults li {padding:10px 7px; border-bottom:1px solid #f0f0f0; font-size:18px;cursor:pointer;}
+    #searchResults li:hover {background:#eafaf1;}
   </style>
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- Kamera alt yapısı için html5-qrcode -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <!-- CSV için papaparse -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <!-- Excel için SheetJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 </head>
 <body>
   <div>
-    <img id="logo" src="logo.png" alt="Demir Kırtasiye Logo">
-    <h1>Demir Kırtasiye Transfer İrsaliye Hazırlama</h1>
+    <img id="logo" src="logo.png" alt="Demir Kırtasiye Logo" onerror="this.style.display='none'">
+    <h1>Demir Kırtasiye<br>Transfer İrsaliye Hazırlama</h1>
   </div>
-  <div id="progressBar" style="margin-bottom:14px; font-size:17px; font-weight:bold; color:#34495e;"></div>
-  <div id="topBtnBar">
-    <button id="loadFromSheetsBtn">Google Sheets'ten Ürünleri Yükle</button>
-    <label><input type="file" id="fileInput" accept=".xlsx,.csv" style="display:none;"><span style="vertical-align:middle;cursor:pointer;" class="btnfile"><b>Dosya Seç</b></span></label>
+
+  <button id="loadFromSheetsBtn">Google Sheets'ten Ürünleri Yükle</button>
+  <input type="file" id="fileInput" accept=".xlsx,.csv"><br>
+  <input type="text" id="manualBarcode" placeholder="Barkodu yazıp Enter’a bas" onkeypress="if(event.key==='Enter'){checkBarcode(this.value)}"><br>
+
+  <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
     <button id="startCameraBtn">📷 Kamerayı Aç</button>
     <button id="stopCameraBtn">📷 Kamerayı Kapat</button>
     <button id="switchBtn">📷 Kamerayı Değiştir</button>
     <button id="openSearchBtn">🔍 Barkod/Ad Ara</button>
   </div>
-  <input type="text" id="manualBarcode" placeholder="Barkodu yazıp Enter’a bas" onkeypress="if(event.key==='Enter'){checkBarcode(this.value)}"><br>
-  <div id="camera" style="display:none;"></div>
+
+  <div id="camera"></div>
+
+  <div id="counters"></div>
+
   <div id="filterBar">
     <button onclick="filterByBranch('Ataevler')">Ataevler</button>
     <button onclick="filterByBranch('Merkez')">Merkez</button>
@@ -111,148 +116,128 @@
     <button onclick="clearFilter()">Tümünü Göster</button>
   </div>
   <div id="productList"></div>
-  <div id="popupOverlay">
-    <div id="popupContent">
-      <h2 id="popupProductName"></h2>
-      <h3 id="popupProductDesc"></h3>
-      <table id="popupTable"></table>
-      <button id="closePopup">Kapat</button>
-    </div>
-  </div>
-  <div id="errorOverlay">
-    <div id="errorContent">
-      <h2 style="color:#e74c3c;">Ürün Bu İrsaliye Değil!</h2>
-      <button onclick="closeErrorPopup()">Kapat</button>
-    </div>
-  </div>
-  <div id="branchPopupOverlay">
-    <div id="branchPopupContent">
-      <h2 id="branchPopupBranch"></h2>
-      <h3 id="branchPopupProduct"></h3>
-      <div id="branchQty"></div>
-      <button id="branchApprove" class="popup-btn approve">✅ AYIRDIM</button>
-      <button id="branchReject" class="popup-btn reject">❌ BEKLİYOR</button><br>
-      <button id="closeBranchPopup">Kapat</button>
-    </div>
-  </div>
-  <!-- Arama Popup -->
-  <div id="searchPopup">
-    <div id="searchContent">
-      <h2>Ürün Ara</h2>
-      <input id="searchInput" type="text" placeholder="Barkodun son 6 hanesi veya ürün adı..." autocomplete="off">
-      <ul id="searchResults"></ul>
-      <button onclick="closeSearchPopup()">Kapat</button>
-    </div>
-  </div>
+
+  <!-- Popuplar -->
+  <div id="popupOverlay"><div id="popupContent"><h2 id="popupProductName"></h2><h3 id="popupProductDesc"></h3><table id="popupTable"></table><button id="closePopup">Kapat</button></div></div>
+  <div id="errorOverlay"><div id="errorContent"><h2 style="color:#e74c3c;">Ürün Bu İrsaliye Değil!</h2><button onclick="closeErrorPopup()">Kapat</button></div></div>
+  <div id="branchPopupOverlay"><div id="branchPopupContent"><h2 id="branchPopupBranch"></h2><h3 id="branchPopupProduct"></h3><div id="branchQty"></div><button id="branchApprove" class="popup-btn approve">✅ AYIRDIM</button><button id="branchReject" class="popup-btn reject">❌ BEKLİYOR</button><br><button id="closeBranchPopup">Kapat</button></div></div>
+  <div id="searchPopup"><div id="searchPopupContent"><h2>Ürün Bul / Barkod Ara</h2><input type="text" id="searchInput" placeholder="Son 6 rakam veya isim..."><ul id="searchResults"></ul><button onclick="closeSearchPopup()">Kapat</button></div></div>
+  <!-- Ses efektleri -->
   <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
   <audio id="errorSound" src="https://actions.google.com/sounds/v1/alarms/beep_long.ogg"></audio>
+  <audio id="notfoundSound" src="https://cdn.pixabay.com/audio/2022/10/16/audio_12fa6a37b9.mp3"></audio>
   <script>
     let products = [];
-    let currentProduct = null;
-    let selectedBranch = null;
-    let currentFilter = null;
-    let unassignedFilter = false;
-    let barcodeInput = document.getElementById('manualBarcode');
-    let autoRestartCamera = false; // Kamera her popup sonrası otomatik başlatılsın mı
-    const popupOverlay = document.getElementById('popupOverlay');
-    const popupProductName = document.getElementById('popupProductName');
-    const popupProductDesc = document.getElementById('popupProductDesc');
-    const popupTable = document.getElementById('popupTable');
-    const errorOverlay = document.getElementById('errorOverlay');
-    const successSound = document.getElementById('successSound');
-    const errorSound = document.getElementById('errorSound');
-    document.querySelector('.btnfile').onclick = function(){ document.getElementById('fileInput').click(); };
+    let currentProduct = null, selectedBranch = null, currentFilter = null, unassignedFilter = false;
+    let autoRestartCamera = false;
+    const barcodeInput = document.getElementById('manualBarcode');
+    // LocalStorage anahtarları
+    const STORAGE_KEY = "demirkirtasiye_transfer_progress";
+    function saveProgress() {
+      if (!products.length) return;
+      // Sadece Barkodu ve scannedStatus saklanacak!
+      const obj = {};
+      products.forEach(p => { obj[p.Barkodu] = p.scannedStatus; });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+    }
+    function loadProgress() {
+      try {
+        const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        if (!products.length) return;
+        products.forEach(p => {
+          if (data[p.Barkodu]) p.scannedStatus = data[p.Barkodu];
+        });
+      } catch {}
+    }
+    function clearProgress() {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+
     function checkBarcode(code) {
+      code = String(code).trim();
       const found = products.find(p => p.Barkodu == code);
       if (found) {
         openPopup(found);
-        successSound.volume = 1.0;
-        successSound.play();
+        document.getElementById('successSound').play();
       } else {
-        errorOverlay.style.display = 'flex';
-        errorSound.volume = 1.0;
-        errorSound.play();
+        document.getElementById('errorOverlay').style.display = 'flex';
+        document.getElementById('notfoundSound').play();
       }
       barcodeInput.value = '';
-      if (!cameraRunning) barcodeInput.focus();
-    }
-    function closeErrorPopup(){
-      errorOverlay.style.display = 'none';
       safeFocusBarcodeInput();
-      if (autoRestartCamera) startCameraAuto();
     }
+    function closeErrorPopup() {
+      document.getElementById('errorOverlay').style.display = 'none';
+      safeFocusBarcodeInput();
+    }
+
     document.getElementById('fileInput').addEventListener('change', handleFile);
     function handleFile(event) {
       const file = event.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = function(e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        let raw = XLSX.utils.sheet_to_json(sheet, {defval: ""});
-        const grouped = {};
-        raw.forEach(row => {
-          const barkod = row.Barkodu || row.BARKODU || row.Barkod;
-          if (!barkod) return;
-          if (!grouped[barkod]) {
-            grouped[barkod] = {
+        let data, workbook;
+        if(file.name.endsWith('.csv')){
+          data = Papa.parse(e.target.result, {header:true, skipEmptyLines:true}).data;
+          products = [];
+          data.forEach(row => {
+            const barkod = row.Barkodu || row.BARKODU || row.Barkod;
+            if (!barkod) return;
+            let p = {
               Barkodu: barkod,
-              Adi: row.Adı || row["Stok Adı"] || row.ADI || "",
-              Adet: 0,
-              Ataevler: 0,
-              Merkez: 0,
-              Fethiye: 0,
-              Topkapı: 0,
-              "Depoda Kalan": 0,
+              Adi: row.Adı || row["Stok Adı"] || row.ADI || row["Stok adı"] || "",
+              Adet: Number(row.ADET || row.Adet || 0),
+              Ataevler: Number(row.Ataevler || row.ATAEVLER || 0),
+              Merkez: Number(row.Merkez || row.MERKEZ || 0),
+              Fethiye: Number(row.Fethiye || row.FETHİYE || row.FETHIYE || 0),
+              Topkapı: Number(row.Topkapı || row.TOPKAPI || 0),
+              "Depoda Kalan": Number(row["Depoda Kalan"] || 0),
               scannedStatus: {}
             };
-          }
-          grouped[barkod].Adet += Number(row.ADET || row.Adet || 0);
-          grouped[barkod].Ataevler += Number(row.Ataevler || row.ATAEVLER || 0);
-          grouped[barkod].Merkez += Number(row.Merkez || row.MERKEZ || 0);
-          grouped[barkod].Fethiye += Number(row.Fethiye || row.FETHİYE || row.FETHIYE || 0);
-          grouped[barkod].Topkapı += Number(row.Topkapı || row.TOPKAPI || 0);
-          grouped[barkod]["Depoda Kalan"] += Number(row["Depoda Kalan"] || 0);
-        });
-        products = Object.values(grouped);
+            products.push(p);
+          });
+        } else {
+          data = new Uint8Array(e.target.result);
+          workbook = XLSX.read(data, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          let raw = XLSX.utils.sheet_to_json(sheet, {defval: ""});
+          const grouped = {};
+          raw.forEach(row => {
+            const barkod = row.Barkodu || row.BARKODU || row.Barkod;
+            if (!barkod) return;
+            if (!grouped[barkod]) {
+              grouped[barkod] = {
+                Barkodu: barkod,
+                Adi: row.Adı || row["Stok Adı"] || row.ADI || "",
+                Adet: 0, Ataevler: 0, Merkez: 0, Fethiye: 0, Topkapı: 0, "Depoda Kalan": 0, scannedStatus: {}
+              };
+            }
+            grouped[barkod].Adet += Number(row.ADET || row.Adet || 0);
+            grouped[barkod].Ataevler += Number(row.Ataevler || row.ATAEVLER || 0);
+            grouped[barkod].Merkez += Number(row.Merkez || row.MERKEZ || 0);
+            grouped[barkod].Fethiye += Number(row.Fethiye || row.FETHİYE || row.FETHIYE || 0);
+            grouped[barkod].Topkapı += Number(row.Topkapı || row.TOPKAPI || 0);
+            grouped[barkod]["Depoda Kalan"] += Number(row["Depoda Kalan"] || 0);
+          });
+          products = Object.values(grouped);
+        }
+        loadProgress(); // eski kayıtlı ilerlemeleri yükle
         renderProducts();
+        renderCounters();
+        saveProgress();
       };
-      reader.readAsArrayBuffer(file);
+      if(file.name.endsWith('.csv')) reader.readAsText(file, "UTF-8");
+      else reader.readAsArrayBuffer(file);
     }
-    function filterByBranch(branch) {
-      currentFilter = branch;
-      unassignedFilter = false;
-      renderProducts();
-    }
-    function clearFilter() {
-      currentFilter = null;
-      unassignedFilter = false;
-      renderProducts();
-    }
-    function showUnassigned() {
-      unassignedFilter = true;
-      currentFilter = null;
-      renderProducts();
-    }
+
+    function filterByBranch(branch) { currentFilter = branch; unassignedFilter = false; renderProducts(); }
+    function clearFilter() { currentFilter = null; unassignedFilter = false; renderProducts(); }
+    function showUnassigned() { unassignedFilter = true; currentFilter = null; renderProducts(); }
+
     function renderProducts() {
       const container = document.getElementById('productList');
       container.innerHTML = '';
-      const branches = ["Ataevler", "Merkez", "Fethiye", "Topkapı", "Depoda Kalan"];
-      let barHtml = '';
-      branches.forEach(branch => {
-        const filtered = products.filter(p => p[branch] && p[branch] > 0);
-        const total = filtered.length;
-        const approved = filtered.filter(p => p.scannedStatus[branch] === 'approved').length;
-        const done = approved === total && total > 0;
-        if(total > 0) {
-          barHtml += `<span style="margin-right:14px;">
-            <b>${branch}:</b> ${approved}/${total} ${done ? "&#10003;" : ""}
-          </span>`;
-        }
-      });
-      document.getElementById('progressBar').innerHTML = barHtml;
       products.forEach(p => {
         if (currentFilter && (!p[currentFilter] || p[currentFilter] === 0)) return;
         if (unassignedFilter) {
@@ -266,11 +251,16 @@
         headerDiv.className = 'product-header';
         headerDiv.innerHTML = `<span>${p.Barkodu} - ${p.Adi}</span><span>${p.Adet} ADET</span>`;
         div.appendChild(headerDiv);
-        const branchDiv = document.createElement('div');
+
+        const branches = ["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"];
+        let branchDiv = document.createElement('div');
         branchDiv.className = 'branch-status';
+        let allApproved = true, anyRejected = false;
         branches.forEach(branch => {
           if (p[branch] && p[branch] > 0) {
             const status = p.scannedStatus[branch] || 'pending';
+            if (status !== 'approved') allApproved = false;
+            if (status === 'rejected') anyRejected = true;
             const span = document.createElement('span');
             span.className = `branch-tag ${status}`;
             span.textContent = `${branch}: ${p[branch]}`;
@@ -278,17 +268,38 @@
           }
         });
         div.appendChild(branchDiv);
-        let allApproved = branches.every(branch => (!p[branch] || p.scannedStatus[branch] === 'approved'));
-        let anyRejected = branches.some(branch => p.scannedStatus[branch] === 'rejected');
         if (allApproved) div.classList.add('complete');
         else if (anyRejected) div.classList.add('incomplete');
         container.appendChild(div);
       });
+      renderCounters();
+      saveProgress();
     }
+    function renderCounters() {
+      // Şube şube sayaçları
+      const branches = ["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"];
+      const counts = {};
+      branches.forEach(branch => counts[branch] = {total:0, approved:0});
+      products.forEach(p => {
+        branches.forEach(branch => {
+          if (p[branch] && p[branch] > 0) {
+            counts[branch].total++;
+            if(p.scannedStatus[branch]==='approved') counts[branch].approved++;
+          }
+        });
+      });
+      let html = '';
+      branches.forEach(branch => {
+        html += `<div class="counterBox">${branch}<br><span>${counts[branch].approved}/${counts[branch].total}</span></div>`;
+      });
+      document.getElementById('counters').innerHTML = html;
+    }
+
     function openPopup(product) {
       currentProduct = product;
-      popupProductName.textContent = `Barkod: ${product.Barkodu}`;
-      popupProductDesc.textContent = product.Adi;
+      document.getElementById('popupProductName').textContent = `Barkod: ${product.Barkodu}`;
+      document.getElementById('popupProductDesc').textContent = product.Adi;
+      const popupTable = document.getElementById('popupTable');
       popupTable.innerHTML = '';
       ["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"].forEach(branch => {
         if (product[branch] && product[branch] > 0) {
@@ -301,212 +312,181 @@
           tdLabel.textContent = branch;
           const tdQty = document.createElement('td');
           tdQty.textContent = (product[branch] || 0) + " ADET";
-          tr.appendChild(tdLabel);
-          tr.appendChild(tdQty);
+          tr.appendChild(tdLabel); tr.appendChild(tdQty);
           popupTable.appendChild(tr);
         }
       });
-      popupOverlay.style.display = 'flex';
+      document.getElementById('popupOverlay').style.display = 'flex';
+      safeBlurBarcodeInput();
     }
+
     function openBranchPopup(product, branch) {
       selectedBranch = branch;
       currentProduct = product;
-      branchPopupBranch.textContent = branch.toUpperCase();
-      branchPopupProduct.textContent = `${product.Barkodu} - ${product.Adi}`;
-      branchQty.textContent = (product[branch] || 0) + " ADET";
-      branchPopupOverlay.style.display = 'flex';
+      document.getElementById('branchPopupBranch').textContent = branch.toUpperCase();
+      document.getElementById('branchPopupProduct').textContent = `${product.Barkodu} - ${product.Adi}`;
+      document.getElementById('branchQty').textContent = (product[branch] || 0) + " ADET";
+      document.getElementById('branchPopupOverlay').style.display = 'flex';
+      safeBlurBarcodeInput();
     }
+
     document.getElementById('branchApprove').onclick = () => {
       if (currentProduct && selectedBranch) {
         currentProduct.scannedStatus[selectedBranch] = 'approved';
         renderProducts();
-        branchPopupOverlay.style.display = 'none';
-        popupOverlay.style.display = 'none';
-        safeFocusBarcodeInput();
-        if (autoRestartCamera) setTimeout(startCameraAuto, 500);
+        document.getElementById('branchPopupOverlay').style.display = 'none';
+        document.getElementById('popupOverlay').style.display = 'none';
+        saveProgress();
+        // Popup sonrası kamera otomatik açılsın!
+        if (autoRestartCamera) setTimeout(()=>startCamera(),500);
+        safeBlurBarcodeInput();
       }
     };
     document.getElementById('branchReject').onclick = () => {
       if (currentProduct && selectedBranch) {
         currentProduct.scannedStatus[selectedBranch] = 'rejected';
         renderProducts();
-        branchPopupOverlay.style.display = 'none';
-        popupOverlay.style.display = 'none';
-        safeFocusBarcodeInput();
-        if (autoRestartCamera) setTimeout(startCameraAuto, 500);
+        document.getElementById('branchPopupOverlay').style.display = 'none';
+        document.getElementById('popupOverlay').style.display = 'none';
+        saveProgress();
+        if (autoRestartCamera) setTimeout(()=>startCamera(),500);
+        safeBlurBarcodeInput();
       }
     };
     document.getElementById('closePopup').onclick = () => {
-      popupOverlay.style.display = 'none';
-      safeFocusBarcodeInput();
-      if (autoRestartCamera) setTimeout(startCameraAuto, 500);
+      document.getElementById('popupOverlay').style.display = 'none';
+      safeBlurBarcodeInput();
     };
     document.getElementById('closeBranchPopup').onclick = () => {
-      branchPopupOverlay.style.display = 'none';
-      safeFocusBarcodeInput();
-      if (autoRestartCamera) setTimeout(startCameraAuto, 500);
+      document.getElementById('branchPopupOverlay').style.display = 'none';
+      safeBlurBarcodeInput();
     };
-    // GOOGLE SHEETS CSV OKUMA
-    document.getElementById('loadFromSheetsBtn').onclick = function() {
-      fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vRK7MAw7CognKnLh-ez67TDVZBvdgxSNJ5B4P-e2KbHgF2uqnKC4V3atPq485Bqmg/pub?output=csv")
-        .then(res => res.text())
-        .then(csvText => {
-          let parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
-          let rows = parsed.data;
-          const grouped = {};
-          rows.forEach(row => {
-            function getCI(obj, field) {
-              const key = Object.keys(obj).find(k => k.toLowerCase() === field.toLowerCase());
-              return key ? obj[key] : "";
-            }
-            const barkod = getCI(row, 'Barkodu') || getCI(row, 'BARKODU') || getCI(row, 'Barkod');
-            if (!barkod) return;
-            if (!grouped[barkod]) {
-              grouped[barkod] = {
-                Barkodu: barkod,
-                Adi: getCI(row, 'Adı') || getCI(row, 'Stok Adı') || getCI(row, 'ADI') || getCI(row, 'Stok adı') || "",
-                Adet: 0,
-                Ataevler: 0,
-                Merkez: 0,
-                Fethiye: 0,
-                Topkapı: 0,
-                "Depoda Kalan": 0,
-                scannedStatus: {}
-              };
-            }
-            grouped[barkod].Adet += Number(getCI(row, 'ADET') || getCI(row, 'Adet') || 0);
-            grouped[barkod].Ataevler += Number(getCI(row, 'Ataevler') || getCI(row, 'ATAEVLER') || 0);
-            grouped[barkod].Merkez += Number(getCI(row, 'Merkez') || getCI(row, 'MERKEZ') || 0);
-            grouped[barkod].Fethiye += Number(getCI(row, 'Fethiye') || getCI(row, 'FETHİYE') || getCI(row, 'FETHIYE') || 0);
-            grouped[barkod].Topkapı += Number(getCI(row, 'Topkapı') || getCI(row, 'TOPKAPI') || 0);
-            grouped[barkod]["Depoda Kalan"] += Number(getCI(row, "Depoda Kalan") || 0);
-          });
-          products = Object.values(grouped);
-          renderProducts();
-        })
-        .catch(e => alert("Sheets okuma hatası: " + e));
-    };
-    // KAMERA ALT YAPISI
-    let html5QrCode = null;
-    let cameraDevices = [];
-    let cameraRunning = false;
-    let currentCameraIndex = 0;
-    async function getCameraDevices() {
-      cameraDevices = await Html5Qrcode.getCameras();
-      if (!cameraDevices.length) {
-        alert("Kamera bulunamadı!");
-        return false;
-      }
-      return true;
-    }
-    async function startCameraAuto() {
+
+    // ========== KAMERA ==========
+    let html5Qr = null, currentCameraId = null, cameraIds = [], cameraIdx = 0;
+    function startCamera() {
+      if (html5Qr) stopCamera();
       autoRestartCamera = true;
-      if (cameraRunning) return;
-      if (!await getCameraDevices()) return;
-      if (!html5QrCode) html5QrCode = new Html5Qrcode("camera");
-      const camId = cameraDevices[currentCameraIndex].id;
-      document.getElementById("camera").style.display = "block";
-      barcodeInput.blur();
-      barcodeInput.setAttribute('readonly', true);
-      html5QrCode.start(
-        camId,
-        { fps: 15, qrbox: {width: 220, height: 140} },
-        (decodedText) => {
-          html5QrCode.stop().then(() => {
-            cameraRunning = false;
-            document.getElementById("camera").style.display = "none";
-            barcodeInput.removeAttribute('readonly');
-          });
-          checkBarcode(decodedText);
-        },
-        (errorMessage) => {}
-      ).then(() => {
-        cameraRunning = true;
-      }).catch(err => {
-        alert("Kamera başlatılamadı: " + err);
-        document.getElementById("camera").style.display = "none";
-        cameraRunning = false;
-        barcodeInput.removeAttribute('readonly');
+      document.getElementById('camera').style.display = "block";
+      html5Qr = new Html5Qrcode("camera");
+      Html5Qrcode.getCameras().then(devices => {
+        cameraIds = devices.map(d => d.id);
+        if (cameraIds.length === 0) return;
+        currentCameraId = cameraIds[cameraIdx] || cameraIds[0];
+        html5Qr.start(
+          currentCameraId,
+          { fps: 10, qrbox: 220, aspectRatio: 1.77 },
+          onBarcodeScan
+        ).catch(err => {});
       });
+      safeBlurBarcodeInput();
     }
-    document.getElementById('startCameraBtn').onclick = startCameraAuto;
-    document.getElementById('stopCameraBtn').onclick = async () => {
+    function stopCamera() {
       autoRestartCamera = false;
-      if (html5QrCode && cameraRunning) {
-        await html5QrCode.stop();
-        cameraRunning = false;
-        document.getElementById("camera").style.display = "none";
-        barcodeInput.removeAttribute('readonly');
-        safeFocusBarcodeInput();
-      }
-    };
-    document.getElementById('switchBtn').onclick = async () => {
-      if (!await getCameraDevices()) return;
-      if (cameraDevices.length < 2) {
-        alert("Başka kamera yok.");
-        return;
-      }
-      if (cameraRunning && html5QrCode) {
-        await html5QrCode.stop();
-        cameraRunning = false;
-        document.getElementById("camera").style.display = "none";
-      }
-      currentCameraIndex = (currentCameraIndex + 1) % cameraDevices.length;
-      setTimeout(startCameraAuto, 350);
-    };
-    function isMobile() {
-      return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+      if(html5Qr) { html5Qr.stop().then(()=>{ html5Qr = null; document.getElementById('camera').style.display = "none"; }); }
     }
+    function switchCamera() {
+      if (!cameraIds.length) return;
+      cameraIdx = (cameraIdx + 1) % cameraIds.length;
+      if (html5Qr) {
+        stopCamera();
+        setTimeout(()=>startCamera(), 600);
+      }
+    }
+    function onBarcodeScan(code) {
+      if (code) {
+        checkBarcode(code);
+        stopCamera();
+      }
+    }
+    document.getElementById('startCameraBtn').onclick = () => {startCamera();}
+    document.getElementById('stopCameraBtn').onclick = () => {stopCamera();}
+    document.getElementById('switchBtn').onclick = () => {switchCamera();}
+
+    // Kamera açıkken klavye açılmasın
     function safeFocusBarcodeInput() {
-      if (cameraRunning) return;
-      if (!isMobile()) {
-        barcodeInput.focus();
-      } else {
-        barcodeInput.blur();
-      }
+      if(!autoRestartCamera) barcodeInput.focus();
+      else safeBlurBarcodeInput();
     }
-    window.onload = function() {
+    function safeBlurBarcodeInput() {
+      if(autoRestartCamera) barcodeInput.blur();
+    }
+
+    // === ARAMA POPUPU ===
+    document.getElementById('openSearchBtn').onclick = ()=>openSearchPopup();
+    function openSearchPopup(){
+      document.getElementById('searchPopup').style.display = "flex";
+      renderSearchResults('');
+      document.getElementById('searchInput').value = '';
+      document.getElementById('searchInput').focus();
+      safeBlurBarcodeInput();
+    }
+    function closeSearchPopup(){
+      document.getElementById('searchPopup').style.display = "none";
       safeFocusBarcodeInput();
     }
-    // ARAMA POPUP
-    const searchPopup = document.getElementById('searchPopup');
-    const searchInput = document.getElementById('searchInput');
-    const searchResults = document.getElementById('searchResults');
-    document.getElementById('openSearchBtn').onclick = () => {
-      searchPopup.style.display = "flex";
-      searchInput.value = "";
-      renderSearchResults("");
-      setTimeout(() => { searchInput.focus(); }, 250);
-    };
-    function closeSearchPopup() {
-      searchPopup.style.display = "none";
-      safeFocusBarcodeInput();
-      if (autoRestartCamera) setTimeout(startCameraAuto, 250);
+    document.getElementById('searchInput').oninput = function() {
+      renderSearchResults(this.value);
     }
     function renderSearchResults(val) {
-      let v = val.trim().toLowerCase();
-      searchResults.innerHTML = "";
-      let filtered = products.filter(p =>
-        (p.Barkodu && (p.Barkodu === v || (v.length === 6 && p.Barkodu.endsWith(v)))) ||
-        (p.Adi && p.Adi.toLowerCase().includes(v))
-      );
-      if (!filtered.length) {
-        searchResults.innerHTML = '<li>Ürün bulunamadı</li>';
-        return;
-      }
-      filtered.slice(0, 18).forEach(p => {
-        let li = document.createElement("li");
+      val = (val||'').toLowerCase().trim();
+      const ul = document.getElementById('searchResults');
+      ul.innerHTML = '';
+      let filtered = products.filter(p => {
+        let b = String(p.Barkodu||'');
+        let n = String(p.Adi||'').toLowerCase();
+        return (
+          b.endsWith(val) ||
+          b.indexOf(val)>-1 ||
+          n.indexOf(val)>-1
+        );
+      });
+      filtered.slice(0,25).forEach(p=>{
+        let li = document.createElement('li');
         li.innerHTML = `<b>${p.Barkodu}</b> - ${p.Adi}`;
-        li.onclick = () => { searchPopup.style.display="none"; openPopup(p); };
-        searchResults.appendChild(li);
+        li.onclick = ()=>{ closeSearchPopup(); openPopup(p);}
+        ul.appendChild(li);
       });
     }
-    searchInput.oninput = function() { renderSearchResults(this.value); }
-    searchInput.onkeypress = function(e) {
-      if(e.key==="Enter" && searchResults.firstChild) {
-        searchResults.firstChild.click();
-      }
-    };
+
+    // Sheets'ten veri yükleme
+    document.getElementById('loadFromSheetsBtn').onclick = function(){
+      fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vRK7MAw7CognKnLh-ez67TDVZBvdgxSNJ5B4P-e2KbHgF2uqnKC4V3atPq485Bqmg/pub?output=csv")
+      .then(resp=>resp.text())
+      .then(csv=>{
+        let data = Papa.parse(csv, {header:true, skipEmptyLines:true}).data;
+        products = [];
+        data.forEach(row => {
+          const barkod = row.Barkodu || row.BARKODU || row.Barkod;
+          if (!barkod) return;
+          let p = {
+            Barkodu: barkod,
+            Adi: row.Adı || row["Stok Adı"] || row.ADI || row["Stok adı"] || "",
+            Adet: Number(row.ADET || row.Adet || 0),
+            Ataevler: Number(row.Ataevler || row.ATAEVLER || 0),
+            Merkez: Number(row.Merkez || row.MERKEZ || 0),
+            Fethiye: Number(row.Fethiye || row.FETHİYE || row.FETHIYE || 0),
+            Topkapı: Number(row.Topkapı || row.TOPKAPI || 0),
+            "Depoda Kalan": Number(row["Depoda Kalan"] || 0),
+            scannedStatus: {}
+          };
+          products.push(p);
+        });
+        loadProgress();
+        renderProducts();
+        renderCounters();
+        saveProgress();
+      });
+    }
+
+    // Sayfa açıldığında eski ilerleme yüklensin
+    window.onload = function(){
+      // logo dosyası yoksa görsel gizli kalır
+      renderProducts();
+      renderCounters();
+      loadProgress();
+      safeFocusBarcodeInput();
+    }
   </script>
 </body>
 </html>
