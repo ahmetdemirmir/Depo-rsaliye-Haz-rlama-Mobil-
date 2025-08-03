@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Demir Kırtasiye Transfer İrsaliye Hazırlama</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f5f7fa; text-align: center; padding: 16px; }
-    #logo { max-width: 110px; margin-bottom: 12px; margin-top:12px; }
-    h1 { color: #2c3e50; margin-top: 10px; margin-bottom: 24px; font-size:2rem; }
-    #filterBar { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 15px;}
-    #filterBar button { padding: 10px 16px; border-radius: 10px; border: none; cursor: pointer; background: #34495e; color: #fff; font-weight: bold; font-size: 1.1rem; display:flex;align-items:center;gap:7px;}
-    #fileInput, #manualBarcode, button { margin: 10px 0; padding: 12px; font-size: 16px;}
-    #camera { width: 97%; max-width: 350px; border: 2px solid #3498db; border-radius: 8px; margin: 10px auto; height: 220px; display:none; background:#000;}
+    body { font-family: Arial, sans-serif; background: #f5f7fa; text-align: center; padding: 12px;}
+    #logo { max-width: 120px; margin: 12px auto 6px auto; display: block;}
+    h1 { color: #2c3e50; margin: 5px 0 22px 0; font-size: 2rem; font-weight:900;}
+    #filterBar { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; margin-bottom: 11px;}
+    #filterBar button { padding: 9px 13px; border-radius: 9px; border: none; cursor: pointer; background: #34495e; color: #fff; font-weight: bold; font-size: 1.09rem; display:flex;align-items:center;gap:7px;}
+    #fileInput, #manualBarcode, button { margin: 8px 0; padding: 11px; font-size: 16px;}
+    #camera { width: 97%; max-width: 355px; border: 2px solid #3498db; border-radius: 8px; margin: 10px auto; height: 220px; display:none; background:#000;}
     #productList { margin-top: 16px; text-align: left;}
     .item { display: flex; flex-direction: column; padding: 11px; margin: 6px 0; border: 2px solid #ddd; background-color: #fdfdfd; border-radius: 9px; cursor: pointer;}
     .product-header { display: flex; justify-content: space-between; font-size: 1rem; color:#2c3e50;}
@@ -26,45 +26,45 @@
       background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999;
     }
     #popupContent, #branchPopupContent, #errorContent, #searchPopupContent {
-      background: #fff; padding: 28px 18px; border-radius: 18px; width: 95%; max-width: 420px;
+      background: #fff; padding: 28px 18px; border-radius: 18px; width: 95%; max-width: 410px;
       text-align: center; box-shadow: 0 0 18px rgba(0,0,0,0.17);
     }
     #popupContent { border: 3px solid #27ae60; background: #eafaf1;}
     #errorContent { border: 3px solid #e74c3c; background: #fdecea;}
     #branchPopupContent { border: 3px solid #8e44ad;}
-    #popupContent h2, #branchPopupContent h2, #errorContent h2 { font-size: 23px; margin-bottom: 10px; font-weight: bold;}
-    #popupContent h3, #branchPopupContent h3, #errorContent h3 { font-size: 18px; margin-bottom: 15px; font-weight: bold;}
+    #popupContent h2, #branchPopupContent h2, #errorContent h2 { font-size: 21px; margin-bottom: 10px; font-weight: bold;}
+    #popupContent h3, #branchPopupContent h3, #errorContent h3 { font-size: 17px; margin-bottom: 15px; font-weight: bold;}
     #popupTable tr.approved-row { background-color: #2ecc71; color: white;}
     #popupTable tr.pending-row { background-color: #e74c3c; color: white;}
     #popupTable td:first-child {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: bold;
-      padding: 12px; border: 2px solid #3498db; border-radius: 7px;
+      padding: 11px; border: 2px solid #3498db; border-radius: 7px;
     }
-    #popupTable td:last-child { font-size: 22px; color: #fff; font-weight: bold; padding: 12px;}
+    #popupTable td:last-child { font-size: 20px; color: #fff; font-weight: bold; padding: 11px;}
     #branchQty {
-      font-size: 36px; font-weight: bold; color: #c0392b; margin: 20px 0; border: 3px solid #8e44ad;
-      padding: 15px; border-radius: 10px; background: #fceae8;
+      font-size: 33px; font-weight: bold; color: #c0392b; margin: 18px 0; border: 3px solid #8e44ad;
+      padding: 14px; border-radius: 10px; background: #fceae8;
     }
-    .popup-btn { padding: 8px 14px; font-size: 17px; border: none; border-radius: 6px; margin: 6px; cursor: pointer;}
+    .popup-btn { padding: 8px 14px; font-size: 16px; border: none; border-radius: 6px; margin: 6px; cursor: pointer;}
     .approve { background: #27ae60; color: white;}
     .reject { background: #e74c3c; color: white;}
     .item.complete { background-color: #d4edda; border-color: #27ae60;}
     .item.incomplete { background-color: #fff3cd; border-color: #f1c40f;}
     #searchPopupContent {border:3px solid #34495e;}
-    #searchInput {width:90%;font-size:17px;padding:8px;margin-bottom:10px;border-radius:7px;border:1px solid #ccc;text-align:center;}
-    #searchResults {list-style:none;padding:0;max-height:220px;overflow-y:auto;margin:0;}
-    #searchResults li {padding:7px 6px; border-bottom: 1px solid #eee; cursor:pointer;}
+    #searchInput {width:90%;font-size:16px;padding:7px;margin-bottom:8px;border-radius:7px;border:1px solid #ccc;text-align:center;}
+    #searchResults {list-style:none;padding:0;max-height:200px;overflow-y:auto;margin:0;}
+    #searchResults li {padding:6px 5px; border-bottom: 1px solid #eee; cursor:pointer;}
     #searchResults li:hover {background:#eafaf1;}
-    /* Sayaç */
-    #branchCounters {display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin:15px 0 0 0;}
-    .branch-counter {background:#f3f3f3;padding:7px 15px;border-radius:14px;display:flex;flex-direction:column;align-items:center;font-size:15.5px;min-width:88px;}
-    .branch-counter strong {font-size:21px;color:#c0392b;margin-top:1px;}
+    #branchCounters {display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin:13px 0 0 0;}
+    .branch-counter {background:#f3f3f3;padding:7px 13px;border-radius:13px;display:flex;flex-direction:column;align-items:center;font-size:14.5px;min-width:76px;}
+    .branch-counter strong {font-size:18px;color:#c0392b;margin-top:1px;}
     @media (max-width: 750px) {
-      h1 { font-size: 1.25rem;}
-      #filterBar button { font-size:1rem; padding:8px 4vw;}
-      #popupContent, #branchPopupContent, #errorContent, #searchPopupContent {max-width: 97vw;}
-      #camera {height: 180px;}
+      h1 { font-size: 1.13rem;}
+      #filterBar button { font-size:.95rem; padding:8px 4vw;}
+      #popupContent, #branchPopupContent, #errorContent, #searchPopupContent {max-width: 98vw;}
+      #camera {height: 160px;}
+      #branchCounters{gap:3px;}
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -72,18 +72,14 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.11/html5-qrcode.min.js"></script>
 </head>
 <body>
-  <div>
-    <img id="logo" src="logo.png" alt="Demir Kırtasiye Logo">
-    <h1>Demir Kırtasiye<br>Transfer İrsaliye Hazırlama</h1>
-  </div>
+  <img id="logo" src="logo.png" alt="Demir Kırtasiye Logo">
+  <h1>Demir Kırtasiye<br>Transfer İrsaliye Hazırlama</h1>
   <button id="loadFromSheetsBtn">Google Sheets'ten Ürünleri Yükle</button><br>
   <input type="file" id="fileInput" accept=".xlsx,.csv"><br>
   <input type="text" id="manualBarcode" placeholder="Barkodu yazıp Enter’a bas" autocomplete="off" inputmode="numeric" onkeypress="if(event.key==='Enter'){checkBarcode(this.value)}"><br>
   <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;">
     <button id="startCameraBtn">📷 Kamerayı Aç</button>
     <button id="stopCameraBtn">📷 Kamerayı Kapat</button>
-  </div>
-  <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;">
     <button id="switchBtn">📷 Kamerayı Değiştir</button>
     <button id="openSearchBtn">🔎 Barkod/Ad Ara</button>
   </div>
@@ -91,7 +87,6 @@
   <div id="branchCounters"></div>
   <div id="filterBar"></div>
   <div id="productList"></div>
-
   <!-- Popuplar -->
   <div id="popupOverlay"><div id="popupContent">
     <h2 id="popupProductName"></h2>
@@ -226,6 +221,7 @@
   function startCamera(){
     autoRestartCamera=true;
     document.getElementById('camera').style.display='block';
+    if(!window.Html5Qrcode){alert("Kamera altyapısı yüklenemedi!");return;}
     if(!html5Qr){html5Qr=new Html5Qrcode("camera");}
     Html5Qrcode.getCameras().then(devices=>{
       cameraIds=devices;if(cameraIds.length===0){alert("Kamera bulunamadı!");return;}
@@ -237,7 +233,8 @@
             checkBarcode(decodedText,true);
           }
         },
-        ()=>{}).catch(err=>{alert("Kamera başlatılamadı: "+err);});
+        (err)=>{console.log("Kamera okuma hatası:",err);}
+      ).catch(err=>{alert("Kamera başlatılamadı: "+err);});
     });
     safeBlurBarcodeInput();
   }
@@ -381,13 +378,11 @@
   }
   // -- Klavye Kapat/Blur --
   function safeBlurBarcodeInput(){
-    // Klavye otomatik açılmasın: popup sırasında input'u blur yap
-    setTimeout(()=>{try{barcodeInput.blur();}catch(e){}},200);
+    setTimeout(()=>{try{barcodeInput.blur();}catch(e){}},180);
   }
   // -- Sayfa yüklendiğinde --
   window.onload=function(){
     renderFilterBar();loadProgress();renderProducts();
-    // Logo bulunamazsa varsayılan...
     document.getElementById('logo').onerror=function(){this.src="https://img.icons8.com/ios-filled/100/34495e/paper-transfer.png";};
   };
 </script>
