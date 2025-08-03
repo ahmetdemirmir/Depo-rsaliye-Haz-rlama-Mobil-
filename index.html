@@ -4,517 +4,392 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Demir Kırtasiye Transfer İrsaliye Hazırlama</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://unpkg.com/html5-qrcode@2.3.11/html5-qrcode.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; background: #f5f7fa; text-align: center; padding: 20px; }
-    h1 { color: #2c3e50; margin-top: 10px; }
-    #logo { max-width: 200px; margin-bottom: 20px; }
-    #filterBar { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 15px; }
-    #filterBar button {
-      padding: 8px 14px;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      background: #34495e;
-      color: #fff;
-      font-weight: bold;
-      position: relative;
-      min-width: 95px;
-      margin-bottom: 6px;
-    }
-    .counter-badge {
-      position: absolute;
-      right: 7px;
-      top: 7px;
-      background: #fff;
-      color: #c0392b;
-      font-size: 14px;
-      font-weight: bold;
-      border-radius: 7px;
-      padding: 1px 6px;
-      border: 1.5px solid #c0392b;
-      pointer-events: none;
-    }
-    #fileInput, #manualBarcode, button { margin: 10px 0; padding: 10px; font-size: 16px; }
-    #camera { width: 95%; max-width: 320px; border: 2px solid #3498db; border-radius: 8px; margin: 10px auto; height: 200px; display:none; }
-    #productList { margin-top: 20px; text-align: left; }
-    .item { display: flex; flex-direction: column; padding: 12px; margin: 6px 0; border: 2px solid #ddd; background-color: #fdfdfd; border-radius: 8px; cursor: pointer; }
-    .product-header { display: flex; justify-content: space-between; font-size: 17px; color:#2c3e50; }
-    .product-header span:nth-child(2) { font-size: 20px; color: #c0392b; font-weight:bold; }
-    .branch-status { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-    .branch-tag { padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 14px; }
-    .branch-tag.pending { background: #bdc3c7; color: #2c3e50; }
-    .branch-tag.approved { background: #27ae60; color: white; }
-    .branch-tag.rejected { background: #e74c3c; color: white; }
+    body { font-family: Arial, sans-serif; background: #f5f7fa; text-align: center; padding: 16px; }
+    #logo { max-width: 110px; margin-bottom: 12px; margin-top:12px; }
+    h1 { color: #2c3e50; margin-top: 10px; margin-bottom: 24px; font-size:2rem; }
+    #filterBar { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 15px;}
+    #filterBar button { padding: 10px 16px; border-radius: 10px; border: none; cursor: pointer; background: #34495e; color: #fff; font-weight: bold; font-size: 1.1rem; display:flex;align-items:center;gap:7px;}
+    #fileInput, #manualBarcode, button { margin: 10px 0; padding: 12px; font-size: 16px;}
+    #camera { width: 97%; max-width: 350px; border: 2px solid #3498db; border-radius: 8px; margin: 10px auto; height: 220px; display:none; background:#000;}
+    #productList { margin-top: 16px; text-align: left;}
+    .item { display: flex; flex-direction: column; padding: 11px; margin: 6px 0; border: 2px solid #ddd; background-color: #fdfdfd; border-radius: 9px; cursor: pointer;}
+    .product-header { display: flex; justify-content: space-between; font-size: 1rem; color:#2c3e50;}
+    .product-header span:nth-child(2) { font-size: 1.18rem; color: #c0392b; font-weight:bold; }
+    .branch-status { display: flex; gap: 7px; margin-top: 8px; flex-wrap: wrap;}
+    .branch-tag { padding: 4px 9px; border-radius: 6px; font-weight: bold; font-size: 14px;}
+    .branch-tag.pending { background: #bdc3c7; color: #2c3e50;}
+    .branch-tag.approved { background: #27ae60; color: white;}
+    .branch-tag.rejected { background: #e74c3c; color: white;}
     #popupOverlay, #branchPopupOverlay, #errorOverlay, #searchPopup {
-      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 999;
+      display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999;
     }
-    #popupContent, #branchPopupContent, #errorContent, #searchContent {
-      background: #ffffff; padding: 30px; border-radius: 16px; width: 90%; max-width: 550px;
-      text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    #popupContent, #branchPopupContent, #errorContent, #searchPopupContent {
+      background: #fff; padding: 28px 18px; border-radius: 18px; width: 95%; max-width: 420px;
+      text-align: center; box-shadow: 0 0 18px rgba(0,0,0,0.17);
     }
-    #popupContent { border: 3px solid #27ae60; background: #eafaf1; }
-    #errorContent { border: 3px solid #e74c3c; background: #fdecea; }
-    #branchPopupContent { border: 3px solid #8e44ad; }
-    #searchContent { border: 3px solid #3498db; background: #ecf5fb; }
-    #popupContent h2, #branchPopupContent h2, #errorContent h2 { font-size: 26px; margin-bottom: 10px; font-weight:bold; }
-    #popupContent h3, #branchPopupContent h3, #errorContent h3 { font-size: 22px; margin-bottom: 15px; font-weight:bold; }
-    #popupTable tr.approved-row { background-color: #2ecc71; color: white; }
-    #popupTable tr.pending-row { background-color: #e74c3c; color: white; }
+    #popupContent { border: 3px solid #27ae60; background: #eafaf1;}
+    #errorContent { border: 3px solid #e74c3c; background: #fdecea;}
+    #branchPopupContent { border: 3px solid #8e44ad;}
+    #popupContent h2, #branchPopupContent h2, #errorContent h2 { font-size: 23px; margin-bottom: 10px; font-weight: bold;}
+    #popupContent h3, #branchPopupContent h3, #errorContent h3 { font-size: 18px; margin-bottom: 15px; font-weight: bold;}
+    #popupTable tr.approved-row { background-color: #2ecc71; color: white;}
+    #popupTable tr.pending-row { background-color: #e74c3c; color: white;}
     #popupTable td:first-child {
-      font-size: 24px;
+      font-size: 20px;
       font-weight: bold;
-      padding: 14px;
-      border: 2px solid #3498db;
-      border-radius: 8px;
+      padding: 12px; border: 2px solid #3498db; border-radius: 7px;
     }
-    #popupTable td:last-child {
-      font-size: 30px;
-      color: #fff;
-      font-weight: bold;
-      padding: 14px;
-    }
+    #popupTable td:last-child { font-size: 22px; color: #fff; font-weight: bold; padding: 12px;}
     #branchQty {
-      font-size: 48px;
-      font-weight: bold;
-      color: #c0392b;
-      margin: 20px 0;
-      border: 3px solid #8e44ad;
-      padding: 15px;
-      border-radius: 10px;
-      background: #fceae8;
+      font-size: 36px; font-weight: bold; color: #c0392b; margin: 20px 0; border: 3px solid #8e44ad;
+      padding: 15px; border-radius: 10px; background: #fceae8;
     }
-    .popup-btn { padding: 8px 14px; font-size: 16px; border: none; border-radius: 6px; margin: 6px; cursor: pointer; }
-    .approve { background: #27ae60; color: white; }
-    .reject { background: #e74c3c; color: white; }
-    .item.complete { background-color: #d4edda; border-color: #27ae60; }
-    .item.incomplete { background-color: #fff3cd; border-color: #f1c40f; }
-    /* Mobil optimizasyon */
-    @media (max-width:700px) {
-      #filterBar { flex-wrap: wrap; gap: 8px;}
-      #filterBar button { min-width: 40vw; margin-bottom: 8px; }
-      .counter-badge { right: 12px; top: 10px; font-size:15px;}
+    .popup-btn { padding: 8px 14px; font-size: 17px; border: none; border-radius: 6px; margin: 6px; cursor: pointer;}
+    .approve { background: #27ae60; color: white;}
+    .reject { background: #e74c3c; color: white;}
+    .item.complete { background-color: #d4edda; border-color: #27ae60;}
+    .item.incomplete { background-color: #fff3cd; border-color: #f1c40f;}
+    #searchPopupContent {border:3px solid #34495e;}
+    #searchInput {width:90%;font-size:17px;padding:8px;margin-bottom:10px;border-radius:7px;border:1px solid #ccc;text-align:center;}
+    #searchResults {list-style:none;padding:0;max-height:220px;overflow-y:auto;margin:0;}
+    #searchResults li {padding:7px 6px; border-bottom: 1px solid #eee; cursor:pointer;}
+    #searchResults li:hover {background:#eafaf1;}
+    /* Sayaç */
+    #branchCounters {display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin:15px 0 0 0;}
+    .branch-counter {background:#f3f3f3;padding:7px 15px;border-radius:14px;display:flex;flex-direction:column;align-items:center;font-size:15.5px;min-width:88px;}
+    .branch-counter strong {font-size:21px;color:#c0392b;margin-top:1px;}
+    @media (max-width: 750px) {
+      h1 { font-size: 1.25rem;}
+      #filterBar button { font-size:1rem; padding:8px 4vw;}
+      #popupContent, #branchPopupContent, #errorContent, #searchPopupContent {max-width: 97vw;}
+      #camera {height: 180px;}
     }
-    #searchInput { width:90%;font-size:18px;padding:10px;margin-bottom:15px;border-radius:8px;border:1px solid #ccc;text-align:center; }
-    #searchResults {list-style:none;padding:0;max-height:210px;overflow-y:auto;margin:0;}
-    #searchResults li {padding: 10px 0; border-bottom: 1px solid #eee; font-size: 16px; cursor:pointer;}
-    #searchResults li:last-child{border-bottom:0;}
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/papaparse@5.3.2/papaparse.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.11/html5-qrcode.min.js"></script>
 </head>
 <body>
   <div>
-    <img id="logo" src="logo.png" alt="Demir Kırtasiye Logo" onerror="this.style.display='none';">
-    <h1>Demir Kırtasiye Transfer İrsaliye Hazırlama</h1>
+    <img id="logo" src="logo.png" alt="Demir Kırtasiye Logo">
+    <h1>Demir Kırtasiye<br>Transfer İrsaliye Hazırlama</h1>
   </div>
-  <button id="loadFromSheetsBtn">Google Sheets'ten Ürünleri Yükle</button>
+  <button id="loadFromSheetsBtn">Google Sheets'ten Ürünleri Yükle</button><br>
   <input type="file" id="fileInput" accept=".xlsx,.csv"><br>
-  <input type="text" id="manualBarcode" placeholder="Barkodu yazıp Enter’a bas" onkeypress="if(event.key==='Enter'){checkBarcode(this.value)}"><br>
-  <button id="startCameraBtn">📷 Kamerayı Aç</button>
-  <button id="stopCameraBtn">📷 Kamerayı Kapat</button>
-  <button id="switchBtn">📷 Kamerayı Değiştir</button>
+  <input type="text" id="manualBarcode" placeholder="Barkodu yazıp Enter’a bas" autocomplete="off" inputmode="numeric" onkeypress="if(event.key==='Enter'){checkBarcode(this.value)}"><br>
+  <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;">
+    <button id="startCameraBtn">📷 Kamerayı Aç</button>
+    <button id="stopCameraBtn">📷 Kamerayı Kapat</button>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;">
+    <button id="switchBtn">📷 Kamerayı Değiştir</button>
+    <button id="openSearchBtn">🔎 Barkod/Ad Ara</button>
+  </div>
   <div id="camera"></div>
-  <button id="openSearchBtn">🔍 Barkod/Ad Ara</button>
+  <div id="branchCounters"></div>
   <div id="filterBar"></div>
   <div id="productList"></div>
-  <!-- Sayaçlar ayrı olmayacak, butonlarda görünecek -->
-  <div id="popupOverlay">
-    <div id="popupContent">
-      <h2 id="popupProductName"></h2>
-      <h3 id="popupProductDesc"></h3>
-      <table id="popupTable"></table>
-      <button id="closePopup">Kapat</button>
-    </div>
-  </div>
-  <div id="errorOverlay">
-    <div id="errorContent">
-      <h2 style="color:#e74c3c;">Ürün Bu İrsaliye Değil!</h2>
-      <button onclick="closeErrorPopup()">Kapat</button>
-    </div>
-  </div>
-  <div id="branchPopupOverlay">
-    <div id="branchPopupContent">
-      <h2 id="branchPopupBranch"></h2>
-      <h3 id="branchPopupProduct"></h3>
-      <div id="branchQty"></div>
-      <button id="branchApprove" class="popup-btn approve">✅ AYIRDIM</button>
-      <button id="branchReject" class="popup-btn reject">❌ BEKLİYOR</button><br>
-      <button id="closeBranchPopup">Kapat</button>
-    </div>
-  </div>
-  <div id="searchPopup">
-    <div id="searchContent">
-      <input type="text" id="searchInput" placeholder="Barkod son 6 hane veya ürün adı">
-      <ul id="searchResults"></ul>
-      <button onclick="closeSearchPopup()">Kapat</button>
-    </div>
-  </div>
+
+  <!-- Popuplar -->
+  <div id="popupOverlay"><div id="popupContent">
+    <h2 id="popupProductName"></h2>
+    <h3 id="popupProductDesc"></h3>
+    <table id="popupTable" style="width:100%;"></table>
+    <button id="closePopup">Kapat</button>
+  </div></div>
+  <div id="errorOverlay"><div id="errorContent">
+    <h2 style="color:#e74c3c;">Ürün Bu İrsaliye Değil!</h2>
+    <button onclick="closeErrorPopup()">Kapat</button>
+  </div></div>
+  <div id="branchPopupOverlay"><div id="branchPopupContent">
+    <h2 id="branchPopupBranch"></h2>
+    <h3 id="branchPopupProduct"></h3>
+    <div id="branchQty"></div>
+    <button id="branchApprove" class="popup-btn approve">✅ AYIRDIM</button>
+    <button id="branchReject" class="popup-btn reject">❌ BEKLİYOR</button><br>
+    <button id="closeBranchPopup">Kapat</button>
+  </div></div>
+  <div id="searchPopup"><div id="searchPopupContent">
+    <span style="position:absolute;top:10px;right:22px;font-size:27px;cursor:pointer;" onclick="closeSearchPopup()">&times;</span>
+    <h2 style="margin-top:0;">Ürün Bul / Barkod Ara</h2>
+    <input type="text" id="searchInput" placeholder="Son 6 rakam veya ürün adı" autocomplete="off">
+    <ul id="searchResults"></ul>
+    <div id="noResultText" style="display:none;color:#c00;font-weight:bold;margin-top:8px;">Ürün bulunamadı!</div>
+  </div></div>
   <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
   <audio id="errorSound" src="https://actions.google.com/sounds/v1/alarms/beep_long.ogg"></audio>
-  <script>
-    let products = [];
-    let currentProduct = null;
-    let selectedBranch = null;
-    let currentFilter = null;
-    let unassignedFilter = false;
-    let autoRestartCamera = false;
-    let html5Qr = null, currentCameraId = null, cameraIds = [], cameraIdx = 0;
-    let barcodeInput = document.getElementById('manualBarcode');
-    // --- Sayaçlar için ---
-    const branches = ["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"];
-    function renderFilterBar(){
-      let html = '';
-      let branchCounts = getBranchCounts();
-      branches.forEach(branch => {
-        html += `<button onclick="filterByBranch('${branch}')" id="btn_${branch}">
-          ${branch}
-          <span class="counter-badge" id="badge_${branch}">
-            ${branchCounts[branch].approved}/${branchCounts[branch].total}
-          </span>
-        </button>`;
-      });
-      html += `<button onclick="showUnassigned()">Ayrılmadı</button>
-        <button onclick="clearFilter()">Tümünü Göster</button>`;
-      document.getElementById('filterBar').innerHTML = html;
-    }
-    function getBranchCounts() {
-      // Her branch için toplam ve tamamlananları say
-      let counts = {};
-      branches.forEach(branch => counts[branch] = {total:0, approved:0});
-      products.forEach(p => {
-        branches.forEach(branch => {
-          if (p[branch] && p[branch] > 0) {
-            counts[branch].total++;
-            if(p.scannedStatus && p.scannedStatus[branch]==='approved') counts[branch].approved++;
-          }
-        });
-      });
-      return counts;
-    }
-    function updateBranchBadges(){
-      let branchCounts = getBranchCounts();
+
+<script>
+  // -- GLOBALLER --
+  let products = [], currentProduct = null, selectedBranch = null;
+  let currentFilter = null, unassignedFilter = false;
+  let html5Qr = null, currentCameraId = null, cameraIds = [], cameraIdx = 0, autoRestartCamera = false;
+  const barcodeInput = document.getElementById('manualBarcode');
+  // -- Sayaç --
+  function renderCounters(){
+    let html='';
+    let branches=["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"];
+    branches.forEach(b=>{
+      let total=products.filter(p=>p[b]>0).length;
+      let done=products.filter(p=>p[b]>0 && p.scannedStatus[b]==="approved").length;
+      html+=`<div class="branch-counter"><b>${b}</b><strong>${done}/${total}</strong></div>`;
+    });
+    document.getElementById('branchCounters').innerHTML=html;
+  }
+  // -- Filtreler --
+  function renderFilterBar(){
+    let html='';
+    let branches=["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"];
+    branches.forEach(b=>{
+      html+=`<button onclick="filterByBranch('${b}')">${b}</button>`;
+    });
+    html+=`<button onclick="showUnassigned()">Ayrılmadı</button>`;
+    html+=`<button onclick="clearFilter()">Tümünü Göster</button>`;
+    document.getElementById('filterBar').innerHTML=html;
+  }
+  function filterByBranch(branch){currentFilter=branch;unassignedFilter=false;renderProducts();}
+  function clearFilter(){currentFilter=null;unassignedFilter=false;renderProducts();}
+  function showUnassigned(){unassignedFilter=true;currentFilter=null;renderProducts();}
+  // -- Ürünler --
+  function renderProducts(){
+    const container = document.getElementById('productList'); container.innerHTML = '';
+    products.forEach(p=>{
+      if(currentFilter&&(!p[currentFilter]||p[currentFilter]===0)) return;
+      if(unassignedFilter){
+        let hasPending=Object.keys(p.scannedStatus).length===0||Object.values(p.scannedStatus).includes('pending');
+        if(!hasPending) return;
+      }
+      const div=document.createElement('div'); div.className='item'; div.onclick=()=>openPopup(p);
+      const headerDiv=document.createElement('div'); headerDiv.className='product-header';
+      headerDiv.innerHTML=`<span>${p.Barkodu} - ${p.Adi}</span><span>${p.Adet} ADET</span>`;
+      div.appendChild(headerDiv);
+      const branches=["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"];
+      let allApproved=true, anyRejected=false;
+      const branchDiv=document.createElement('div'); branchDiv.className='branch-status';
       branches.forEach(branch=>{
-        let badge = document.getElementById('badge_'+branch);
-        if(badge) badge.textContent = branchCounts[branch].approved + "/" + branchCounts[branch].total;
-      });
-    }
-    function renderProducts() {
-      const container = document.getElementById('productList');
-      container.innerHTML = '';
-      products.forEach(p => {
-        if (currentFilter && (!p[currentFilter] || p[currentFilter] === 0)) return;
-        if (unassignedFilter) {
-          const hasPending = Object.keys(p.scannedStatus||{}).length === 0 || Object.values(p.scannedStatus).includes('pending');
-          if (!hasPending) return;
+        if(p[branch]&&p[branch]>0){
+          const status=p.scannedStatus[branch]||'pending';
+          if(status!=='approved') allApproved=false;
+          if(status==='rejected') anyRejected=true;
+          const span=document.createElement('span');
+          span.className=`branch-tag ${status}`; span.textContent=`${branch}: ${p[branch]}`;
+          branchDiv.appendChild(span);
         }
-        const div = document.createElement('div');
-        div.className = 'item';
-        div.onclick = () => openPopup(p);
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'product-header';
-        headerDiv.innerHTML = `<span>${p.Barkodu} - ${p.Adi}</span><span>${p.Adet} ADET</span>`;
-        div.appendChild(headerDiv);
-        let allApproved = true;
-        let anyRejected = false;
-        const branchDiv = document.createElement('div');
-        branchDiv.className = 'branch-status';
-        branches.forEach(branch => {
-          if (p[branch] && p[branch] > 0) {
-            const status = (p.scannedStatus||{})[branch] || 'pending';
-            if (status !== 'approved') allApproved = false;
-            if (status === 'rejected') anyRejected = true;
-            const span = document.createElement('span');
-            span.className = `branch-tag ${status}`;
-            span.textContent = `${branch}: ${p[branch]}`;
-            branchDiv.appendChild(span);
+      }); div.appendChild(branchDiv);
+      if(allApproved) div.classList.add('complete'); else if(anyRejected) div.classList.add('incomplete');
+      container.appendChild(div);
+    });
+    renderCounters();
+  }
+  // -- Popup & Onay --
+  function openPopup(product){currentProduct=product;document.getElementById('popupProductName').textContent=`Barkod: ${product.Barkodu}`;
+    document.getElementById('popupProductDesc').textContent=product.Adi;document.getElementById('popupTable').innerHTML='';
+    ["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"].forEach(branch=>{
+      if(product[branch]&&product[branch]>0){
+        const tr=document.createElement('tr');
+        const status=product.scannedStatus[branch]||'pending';
+        tr.className=(status==='approved')?'approved-row':'pending-row';tr.style.cursor='pointer';
+        tr.onclick=()=>openBranchPopup(product,branch);
+        const tdLabel=document.createElement('td'); tdLabel.textContent=branch;
+        const tdQty=document.createElement('td'); tdQty.textContent=(product[branch]||0)+" ADET";
+        tr.appendChild(tdLabel); tr.appendChild(tdQty);document.getElementById('popupTable').appendChild(tr);}
+    }); document.getElementById('popupOverlay').style.display='flex'; safeBlurBarcodeInput();}
+  function openBranchPopup(product,branch){selectedBranch=branch;currentProduct=product;
+    document.getElementById('branchPopupBranch').textContent=branch.toUpperCase();
+    document.getElementById('branchPopupProduct').textContent=`${product.Barkodu} - ${product.Adi}`;
+    document.getElementById('branchQty').textContent=(product[branch]||0)+" ADET";
+    document.getElementById('branchPopupOverlay').style.display='flex';safeBlurBarcodeInput();}
+  document.getElementById('branchApprove').onclick=()=>{
+    if(currentProduct&&selectedBranch){currentProduct.scannedStatus[selectedBranch]='approved';renderProducts();
+      document.getElementById('branchPopupOverlay').style.display='none';
+      document.getElementById('popupOverlay').style.display='none';
+      saveProgress();if(autoRestartCamera)setTimeout(()=>startCamera(),400);safeBlurBarcodeInput();}
+  };
+  document.getElementById('branchReject').onclick=()=>{
+    if(currentProduct&&selectedBranch){currentProduct.scannedStatus[selectedBranch]='rejected';renderProducts();
+      document.getElementById('branchPopupOverlay').style.display='none';
+      document.getElementById('popupOverlay').style.display='none';
+      saveProgress();if(autoRestartCamera)setTimeout(()=>startCamera(),400);safeBlurBarcodeInput();}
+  };
+  document.getElementById('closePopup').onclick=()=>{
+    document.getElementById('popupOverlay').style.display='none';safeBlurBarcodeInput();
+  };
+  document.getElementById('closeBranchPopup').onclick=()=>{
+    document.getElementById('branchPopupOverlay').style.display='none';safeBlurBarcodeInput();
+  };
+  // -- Sesler --
+  const successSound=document.getElementById('successSound');
+  const errorSound=document.getElementById('errorSound');
+  // -- Kamera --
+  function startCamera(){
+    autoRestartCamera=true;
+    document.getElementById('camera').style.display='block';
+    if(!html5Qr){html5Qr=new Html5Qrcode("camera");}
+    Html5Qrcode.getCameras().then(devices=>{
+      cameraIds=devices;if(cameraIds.length===0){alert("Kamera bulunamadı!");return;}
+      if(!currentCameraId)currentCameraId=cameraIds[0].id;
+      html5Qr.start(currentCameraId,{fps:10,qrbox:220,aspectRatio:1.6},
+        (decodedText)=>{
+          if(decodedText){
+            html5Qr.stop();document.getElementById('camera').style.display='none';
+            checkBarcode(decodedText,true);
+          }
+        },
+        ()=>{}).catch(err=>{alert("Kamera başlatılamadı: "+err);});
+    });
+    safeBlurBarcodeInput();
+  }
+  function stopCamera(){autoRestartCamera=false;if(html5Qr){html5Qr.stop().then(()=>{document.getElementById('camera').style.display='none';});}}
+  function switchCamera(){
+    if(cameraIds.length<2) return;
+    cameraIdx=(cameraIdx+1)%cameraIds.length;
+    currentCameraId=cameraIds[cameraIdx].id;
+    stopCamera(); setTimeout(()=>startCamera(),500);
+  }
+  document.getElementById('startCameraBtn').onclick=startCamera;
+  document.getElementById('stopCameraBtn').onclick=stopCamera;
+  document.getElementById('switchBtn').onclick=switchCamera;
+
+  // -- Barkod & Popup --
+  function checkBarcode(code,fromCamera){
+    code=String(code).trim();
+    let found=products.find(p=>String(p.Barkodu)===code);
+    if(found){
+      openPopup(found);
+      if(successSound){successSound.currentTime=0;successSound.play();}
+      barcodeInput.value='';
+      if(fromCamera)setTimeout(()=>{autoRestartCamera=false;},500);
+    }else{
+      document.getElementById('errorOverlay').style.display='flex';
+      if(errorSound){errorSound.currentTime=0;errorSound.play();}
+      barcodeInput.value='';
+      if(fromCamera)setTimeout(()=>{autoRestartCamera=false;},500);
+    }
+    safeBlurBarcodeInput();
+  }
+  function closeErrorPopup(){
+    document.getElementById('errorOverlay').style.display='none';
+    if(autoRestartCamera)setTimeout(()=>startCamera(),350);
+    safeBlurBarcodeInput();
+  }
+  // -- KAYIT ve Progress --
+  function saveProgress(){
+    try{localStorage.setItem("depo_irsaliye_v2",JSON.stringify(products));}catch(e){}
+  }
+  function loadProgress(){
+    try{
+      let pr=localStorage.getItem("depo_irsaliye_v2");
+      if(pr){products=JSON.parse(pr);renderProducts();}
+    }catch(e){}
+  }
+  // -- Dosya/Sheet --
+  document.getElementById('fileInput').addEventListener('change',handleFile);
+  function handleFile(event){
+    const file=event.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=function(e){
+      let data=e.target.result;
+      if(file.name.endsWith(".xlsx")||file.name.endsWith(".xls")){
+        let workbook=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        let sheet=workbook.Sheets[workbook.SheetNames[0]];
+        let raw=XLSX.utils.sheet_to_json(sheet,{defval:""});
+        products=processRows(raw); renderProducts();saveProgress();
+      }else{
+        let text=data;
+        Papa.parse(text,{
+          header:true,
+          skipEmptyLines:true,
+          complete:function(results){
+            products=processRows(results.data); renderProducts();saveProgress();
           }
         });
-        div.appendChild(branchDiv);
-        if (allApproved) div.classList.add('complete');
-        else if (anyRejected) div.classList.add('incomplete');
-        container.appendChild(div);
-      });
-      updateBranchBadges();
-      saveProgress();
-    }
-    function filterByBranch(branch) {
-      currentFilter = branch;
-      unassignedFilter = false;
-      renderProducts();
-    }
-    function clearFilter() {
-      currentFilter = null;
-      unassignedFilter = false;
-      renderProducts();
-    }
-    function showUnassigned() {
-      unassignedFilter = true;
-      currentFilter = null;
-      renderProducts();
-    }
-    // --- Popup aç/kapat & şube seçme
-    function openPopup(product) {
-      currentProduct = product;
-      document.getElementById('popupProductName').textContent = `Barkod: ${product.Barkodu}`;
-      document.getElementById('popupProductDesc').textContent = product.Adi;
-      const popupTable = document.getElementById('popupTable');
-      popupTable.innerHTML = '';
-      branches.forEach(branch => {
-        if (product[branch] && product[branch] > 0) {
-          const tr = document.createElement('tr');
-          const status = (product.scannedStatus||{})[branch] || 'pending';
-          tr.className = (status === 'approved') ? 'approved-row' : 'pending-row';
-          tr.style.cursor = 'pointer';
-          tr.onclick = () => openBranchPopup(product, branch);
-          const tdLabel = document.createElement('td');
-          tdLabel.textContent = branch;
-          const tdQty = document.createElement('td');
-          tdQty.textContent = (product[branch] || 0) + " ADET";
-          tr.appendChild(tdLabel); tr.appendChild(tdQty);
-          popupTable.appendChild(tr);
+      }
+    };
+    if(file.name.endsWith(".xlsx")||file.name.endsWith(".xls"))reader.readAsArrayBuffer(file);
+    else reader.readAsText(file,"UTF-8");
+  }
+  // -- Google Sheets --
+  document.getElementById("loadFromSheetsBtn").onclick=function(){
+    fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vRK7MAw7CognKnLh-ez67TDVZBvdgxSNJ5B4P-e2KbHgF2uqnKC4V3atPq485Bqmg/pub?output=csv')
+    .then(r=>r.text())
+    .then(csv=>{
+      Papa.parse(csv,{header:true,skipEmptyLines:true,
+        complete:function(results){
+          products=processRows(results.data); renderProducts();saveProgress();
         }
       });
-      document.getElementById('popupOverlay').style.display = 'flex';
-      safeBlurBarcodeInput();
-    }
-    function openBranchPopup(product, branch) {
-      selectedBranch = branch;
-      currentProduct = product;
-      document.getElementById('branchPopupBranch').textContent = branch.toUpperCase();
-      document.getElementById('branchPopupProduct').textContent = `${product.Barkodu} - ${product.Adi}`;
-      document.getElementById('branchQty').textContent = (product[branch] || 0) + " ADET";
-      document.getElementById('branchPopupOverlay').style.display = 'flex';
-      safeBlurBarcodeInput();
-    }
-    document.getElementById('branchApprove').onclick = () => {
-      if (currentProduct && selectedBranch) {
-        if(!currentProduct.scannedStatus) currentProduct.scannedStatus = {};
-        currentProduct.scannedStatus[selectedBranch] = 'approved';
-        renderProducts();
-        document.getElementById('branchPopupOverlay').style.display = 'none';
-        document.getElementById('popupOverlay').style.display = 'none';
-        saveProgress();
-        // popup sonrası otomatik kamera aç!
-        if (autoRestartCamera) setTimeout(()=>startCamera(),400);
-        safeBlurBarcodeInput();
-      }
-    };
-    document.getElementById('branchReject').onclick = () => {
-      if (currentProduct && selectedBranch) {
-        if(!currentProduct.scannedStatus) currentProduct.scannedStatus = {};
-        currentProduct.scannedStatus[selectedBranch] = 'rejected';
-        renderProducts();
-        document.getElementById('branchPopupOverlay').style.display = 'none';
-        document.getElementById('popupOverlay').style.display = 'none';
-        saveProgress();
-        if (autoRestartCamera) setTimeout(()=>startCamera(),400);
-        safeBlurBarcodeInput();
-      }
-    };
-    document.getElementById('closePopup').onclick = () => {
-      document.getElementById('popupOverlay').style.display = 'none';
-      safeBlurBarcodeInput();
-    };
-    document.getElementById('closeBranchPopup').onclick = () => {
-      document.getElementById('branchPopupOverlay').style.display = 'none';
-      safeBlurBarcodeInput();
-    };
-    // ---- Ses
-    const successSound = document.getElementById('successSound');
-    const errorSound = document.getElementById('errorSound');
-    // ---- Kamera
-    function startCamera(){
-      autoRestartCamera = true;
-      document.getElementById('camera').style.display = 'block';
-      if(!html5Qr){
-        html5Qr = new Html5Qrcode("camera");
-      }
-      Html5Qrcode.getCameras().then(devices=>{
-        cameraIds = devices;
-        if(!currentCameraId) currentCameraId = cameraIds[0]?.id;
-        html5Qr.start(
-          currentCameraId,
-          { fps:10, qrbox:220, aspectRatio:1.6 },
-          (decodedText, decodedResult)=>{
-            if(decodedText){
-              html5Qr.stop();
-              document.getElementById('camera').style.display = 'none';
-              autoRestartCamera = true;
-              checkBarcode(decodedText.trim(), true);
-            }
-          },
-          (err)=>{}
-        );
-      }).catch(err=>{
-        alert("Kamera bulunamadı: "+err);
-      });
-      safeBlurBarcodeInput();
-    }
-    function stopCamera(){
-      autoRestartCamera = false;
-      if(html5Qr) html5Qr.stop().catch(()=>{});
-      document.getElementById('camera').style.display = 'none';
-      safeBlurBarcodeInput();
-    }
-    function switchCamera(){
-      if(cameraIds.length<2) return;
-      cameraIdx = (cameraIdx+1)%cameraIds.length;
-      currentCameraId = cameraIds[cameraIdx].id;
-      stopCamera();
-      setTimeout(()=>startCamera(),350);
-    }
-    document.getElementById('startCameraBtn').onclick=startCamera;
-    document.getElementById('stopCameraBtn').onclick=stopCamera;
-    document.getElementById('switchBtn').onclick=switchCamera;
-    // ---- Barkod
-    function checkBarcode(code, fromCamera=false) {
-      const found = products.find(p => p.Barkodu == code);
-      if (found) {
-        openPopup(found);
-        successSound.volume = 1.0;
-        successSound.play();
-        if(fromCamera) autoRestartCamera = true; else autoRestartCamera = false;
-      } else {
-        document.getElementById('errorOverlay').style.display = 'flex';
-        errorSound.volume = 1.0;
-        errorSound.play();
-        autoRestartCamera = false;
-      }
-      barcodeInput.value = '';
-      safeBlurBarcodeInput();
-    }
-    function closeErrorPopup(){
-      document.getElementById('errorOverlay').style.display = 'none';
-      if (autoRestartCamera) setTimeout(()=>startCamera(),400);
-      safeBlurBarcodeInput();
-    }
-    // Klavye engelleme
-    function safeBlurBarcodeInput(){
-      barcodeInput.blur();
-      setTimeout(()=>barcodeInput.blur(),150);
-    }
-    // --- Excel/CSV yükleme
-    document.getElementById('fileInput').addEventListener('change', handleFile);
-    function handleFile(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        let data = e.target.result;
-        if(file.name.endsWith('.csv')){
-          let parsed = Papa.parse(data, {header:true, skipEmptyLines:true});
-          prepareProducts(parsed.data);
-        } else {
-          const workbook = XLSX.read(new Uint8Array(data), { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          let raw = XLSX.utils.sheet_to_json(sheet, {defval: ""});
-          prepareProducts(raw);
-        }
-      };
-      if(file.name.endsWith('.csv')) reader.readAsText(file);
-      else reader.readAsArrayBuffer(file);
-    }
-    // --- Google Sheets
-    const sheetCSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRK7MAw7CognKnLh-ez67TDVZBvdgxSNJ5B4P-e2KbHgF2uqnKC4V3atPq485Bqmg/pub?output=csv";
-    document.getElementById('loadFromSheetsBtn').onclick = ()=>{
-      fetch(sheetCSV)
-        .then(r=>r.text())
-        .then(csv=>{
-          let parsed = Papa.parse(csv, {header:true, skipEmptyLines:true});
-          prepareProducts(parsed.data);
-        });
-    }
-    function prepareProducts(data){
-      // CSV/XLSX -> ürün normalize
-      products = [];
-      data.forEach(row=>{
-        let barkod = row.Barkodu || row.BARKODU || row.Barkod || row["BARKOD"];
-        if (!barkod) return;
-        let urun = {
-          Barkodu: barkod,
-          Adi: row.Adı || row["Stok Adı"] || row.ADI || row["STOK ADI"] || "",
-          Adet: Number(row.ADET || row.Adet || row["ADET"] || 0),
-          Ataevler: Number(row.Ataevler || row.ATAEVLER || row["Ataevler"] || row["ATAEVLER"] || 0),
-          Merkez: Number(row.Merkez || row.MERKEZ || row["Merkez"] || row["MERKEZ"] || 0),
-          Fethiye: Number(row.Fethiye || row.FETHİYE || row.FETHIYE || row["Fethiye"] || row["FETHİYE"] || row["FETHIYE"] || 0),
-          Topkapı: Number(row.Topkapı || row.TOPKAPI || row["Topkapı"] || row["TOPKAPI"] || 0),
-          "Depoda Kalan": Number(row["Depoda Kalan"] || row["DEPODA KALAN"] || 0),
-          scannedStatus: {}
+    });
+  };
+  // -- Dönüştür ve Normalize Et --
+  function processRows(raw){
+    let grouped={};
+    raw.forEach(row=>{
+      const barkod=row.Barkodu||row.BARKODU||row.Barkod;
+      if(!barkod) return;
+      if(!grouped[barkod]){
+        grouped[barkod]={
+          Barkodu:barkod,
+          Adi:row.Adı||row["Stok Adı"]||row.ADI||row["Ad"]||"",
+          Adet:Number(row.ADET||row.Adet||row["Adet"]||0),
+          Ataevler:Number(row.Ataevler||row.ATAEVLER||row["Ataevler"]||0),
+          Merkez:Number(row.Merkez||row.MERKEZ||row["Merkez"]||0),
+          Fethiye:Number(row.Fethiye||row.FETHİYE||row.FETHIYE||row["Fethiye"]||0),
+          Topkapı:Number(row.Topkapı||row.TOPKAPI||row["Topkapı"]||0),
+          "Depoda Kalan":Number(row["Depoda Kalan"]||row.DepodaKalan||row["DepodaKalan"]||0),
+          scannedStatus:{}
         };
-        products.push(urun);
-      });
-      renderFilterBar();
-      renderProducts();
-      loadProgress();
-    }
-    // ---- Popup sonrası klavye engelle
-    barcodeInput.addEventListener('focus', ()=>{
-      if(document.getElementById('camera').style.display === 'block'){
-        setTimeout(()=>barcodeInput.blur(),120);
+      }else{
+        grouped[barkod].Adet+=Number(row.ADET||row.Adet||0);
+        grouped[barkod].Ataevler+=Number(row.Ataevler||row.ATAEVLER||0);
+        grouped[barkod].Merkez+=Number(row.Merkez||row.MERKEZ||0);
+        grouped[barkod].Fethiye+=Number(row.Fethiye||row.FETHİYE||row.FETHIYE||0);
+        grouped[barkod].Topkapı+=Number(row.Topkapı||row.TOPKAPI||0);
+        grouped[barkod]["Depoda Kalan"]+=Number(row["Depoda Kalan"]||0);
       }
     });
-    // ---- Kayıt (localStorage)
-    function saveProgress(){
-      localStorage.setItem("irsaliye_durum", JSON.stringify(products.map(x=>x.scannedStatus||{})));
-    }
-    function loadProgress(){
-      let durum = localStorage.getItem("irsaliye_durum");
-      if(!durum) return;
-      let arr = [];
-      try{ arr = JSON.parse(durum); }catch(e){}
-      if(arr && arr.length === products.length){
-        for(let i=0; i<arr.length; ++i){
-          products[i].scannedStatus = arr[i]||{};
-        }
-      }
-      renderProducts();
-    }
-    // --- Arama Popup
-    document.getElementById('openSearchBtn').onclick = ()=>{openSearchPopup();};
-    function openSearchPopup(){
-      document.getElementById('searchPopup').style.display = 'flex';
-      document.getElementById('searchInput').value = '';
-      filterSearchResults('');
-      safeBlurBarcodeInput();
-    }
-    function closeSearchPopup(){
-      document.getElementById('searchPopup').style.display = 'none';
-      safeBlurBarcodeInput();
-    }
-    document.getElementById('searchInput').oninput = function(){
-      filterSearchResults(this.value);
-    }
-    function filterSearchResults(val){
-      val = (val||'').toLowerCase();
-      let results = products.filter(item=>{
-        let barkod = String(item.Barkodu||'').toLowerCase();
-        let ad = String(item.Adi||'').toLowerCase();
-        return (
-          (!val || barkod.includes(val) || ad.includes(val)) ||
-          (val.length===6 && barkod.endsWith(val))
-        );
-      });
-      let list = document.getElementById('searchResults');
-      list.innerHTML = '';
-      results.slice(0,16).forEach(item=>{
-        let li = document.createElement('li');
-        li.innerHTML = `<span style="font-weight:bold">${item.Barkodu}</span> - <span>${item.Adi}</span>`;
-        li.onclick = ()=>{ closeSearchPopup(); openPopup(item); };
-        list.appendChild(li);
-      });
-    }
-    // --- Logo
-    // Not: Sadece logo.png dosyasını repoya eklemen yeterli. Otomatik gelir. Veya alt satırda src'yı değiştir.
-    // <img id="logo" src="LOGO_YOLUNUZ.png" ...>
-    // ---
-    window.onload = function(){
-      renderFilterBar();
-      renderProducts();
-      loadProgress();
-    }
-  </script>
+    return Object.values(grouped);
+  }
+  // -- Barkod/Ad Arama --
+  document.getElementById('openSearchBtn').onclick=function(){
+    document.getElementById('searchPopup').style.display='flex';
+    document.getElementById('searchInput').value='';filterManualSearch();
+    setTimeout(()=>{document.getElementById('searchInput').focus();},100);
+    safeBlurBarcodeInput();
+  };
+  function closeSearchPopup(){document.getElementById('searchPopup').style.display='none';safeBlurBarcodeInput();}
+  document.getElementById('searchInput').oninput=filterManualSearch;
+  function filterManualSearch(){
+    let val=document.getElementById('searchInput').value.trim().toLowerCase();
+    let resultList=document.getElementById('searchResults');
+    resultList.innerHTML='';
+    let noResult=document.getElementById('noResultText');
+    let filtered=products.filter(item=>{
+      let barkod=String(item.Barkodu||"").toLowerCase();
+      let ad=String(item.Adi||"").toLowerCase();
+      return (!val||barkod.includes(val)||ad.includes(val)||(val.length===6&&barkod.endsWith(val)));
+    });
+    if(filtered.length===0){noResult.style.display='block';return;}
+    noResult.style.display='none';
+    filtered.slice(0,16).forEach(item=>{
+      let li=document.createElement('li');
+      li.innerHTML=`<span style="font-size:17px;font-weight:bold">${item.Barkodu}</span> - <span style="font-size:16px">${item.Adi}</span>`;
+      li.onclick=()=>{closeSearchPopup();openPopup(item);};
+      resultList.appendChild(li);
+    });
+  }
+  // -- Klavye Kapat/Blur --
+  function safeBlurBarcodeInput(){
+    // Klavye otomatik açılmasın: popup sırasında input'u blur yap
+    setTimeout(()=>{try{barcodeInput.blur();}catch(e){}},200);
+  }
+  // -- Sayfa yüklendiğinde --
+  window.onload=function(){
+    renderFilterBar();loadProgress();renderProducts();
+    // Logo bulunamazsa varsayılan...
+    document.getElementById('logo').onerror=function(){this.src="https://img.icons8.com/ios-filled/100/34495e/paper-transfer.png";};
+  };
+</script>
 </body>
 </html>
