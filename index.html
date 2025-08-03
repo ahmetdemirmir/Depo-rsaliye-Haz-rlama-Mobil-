@@ -64,8 +64,6 @@
     .reject { background: #e74c3c; color: white; }
     .item.complete { background-color: #d4edda; border-color: #27ae60; }
     .item.incomplete { background-color: #fff3cd; border-color: #f1c40f; }
-
-    /* Kamera ve yükleme butonları mobil uyum */
     #topBtnBar {
       display: flex; flex-wrap: wrap; gap:10px; justify-content:center; margin-bottom:10px;
     }
@@ -81,7 +79,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 </head>
-<body onload="document.getElementById('manualBarcode').focus()">
+<body>
   <div>
     <img id="logo" src="logo.png" alt="Demir Kırtasiye Logo">
     <h1>Demir Kırtasiye Transfer İrsaliye Hazırlama</h1>
@@ -137,6 +135,7 @@
     let selectedBranch = null;
     let currentFilter = null;
     let unassignedFilter = false;
+    let barcodeInput = document.getElementById('manualBarcode');
     const popupOverlay = document.getElementById('popupOverlay');
     const popupProductName = document.getElementById('popupProductName');
     const popupProductDesc = document.getElementById('popupProductDesc');
@@ -145,7 +144,6 @@
     const successSound = document.getElementById('successSound');
     const errorSound = document.getElementById('errorSound');
 
-    // Dosya seç labelı gerçek inputu tetikler
     document.querySelector('.btnfile').onclick = function(){ document.getElementById('fileInput').click(); };
 
     function checkBarcode(code) {
@@ -159,8 +157,8 @@
         errorSound.volume = 1.0;
         errorSound.play();
       }
-      document.getElementById('manualBarcode').value = '';
-      document.getElementById('manualBarcode').focus();
+      barcodeInput.value = '';
+      if (!cameraRunning) barcodeInput.focus();
     }
     function closeErrorPopup(){
       errorOverlay.style.display = 'none';
@@ -298,7 +296,7 @@
         renderProducts();
         branchPopupOverlay.style.display = 'none';
         popupOverlay.style.display = 'none';
-        document.getElementById('manualBarcode').focus();
+        if (!cameraRunning) barcodeInput.focus();
       }
     };
     document.getElementById('branchReject').onclick = () => {
@@ -307,14 +305,16 @@
         renderProducts();
         branchPopupOverlay.style.display = 'none';
         popupOverlay.style.display = 'none';
-        document.getElementById('manualBarcode').focus();
+        if (!cameraRunning) barcodeInput.focus();
       }
     };
     document.getElementById('closePopup').onclick = () => {
       popupOverlay.style.display = 'none';
+      if (!cameraRunning) barcodeInput.focus();
     };
     document.getElementById('closeBranchPopup').onclick = () => {
       branchPopupOverlay.style.display = 'none';
+      if (!cameraRunning) barcodeInput.focus();
     };
 
     // =======================
@@ -328,7 +328,6 @@
           let rows = parsed.data;
           const grouped = {};
           rows.forEach(row => {
-            // -- Case-insensitive field match
             function getCI(obj, field) {
               const key = Object.keys(obj).find(k => k.toLowerCase() === field.toLowerCase());
               return key ? obj[key] : "";
@@ -368,7 +367,6 @@
     let cameraDevices = [];
     let cameraRunning = false;
     let currentCameraIndex = 0;
-
     async function getCameraDevices() {
       cameraDevices = await Html5Qrcode.getCameras();
       if (!cameraDevices.length) {
@@ -377,13 +375,14 @@
       }
       return true;
     }
-
     document.getElementById('startCameraBtn').onclick = async () => {
       if (cameraRunning) return;
       if (!await getCameraDevices()) return;
       if (!html5QrCode) html5QrCode = new Html5Qrcode("camera");
       const camId = cameraDevices[currentCameraIndex].id;
       document.getElementById("camera").style.display = "block";
+      barcodeInput.blur();
+      barcodeInput.setAttribute('readonly', true); // Klavye açılmasın
       html5QrCode.start(
         camId,
         { fps: 15, qrbox: {width: 220, height: 140} },
@@ -391,6 +390,8 @@
           html5QrCode.stop().then(() => {
             cameraRunning = false;
             document.getElementById("camera").style.display = "none";
+            barcodeInput.removeAttribute('readonly');
+            barcodeInput.focus();
           });
           checkBarcode(decodedText);
         },
@@ -401,34 +402,38 @@
         alert("Kamera başlatılamadı: " + err);
         document.getElementById("camera").style.display = "none";
         cameraRunning = false;
+        barcodeInput.removeAttribute('readonly');
+        barcodeInput.focus();
       });
     };
-
     document.getElementById('stopCameraBtn').onclick = async () => {
       if (html5QrCode && cameraRunning) {
         await html5QrCode.stop();
         cameraRunning = false;
         document.getElementById("camera").style.display = "none";
+        barcodeInput.removeAttribute('readonly');
+        barcodeInput.focus();
       }
     };
-
     document.getElementById('switchBtn').onclick = async () => {
       if (!await getCameraDevices()) return;
       if (cameraDevices.length < 2) {
         alert("Başka kamera yok.");
         return;
       }
-      currentCameraIndex = (currentCameraIndex + 1) % cameraDevices.length;
+      // Kamera değiştirirken tam kapatıp sonra açıyoruz (garantili yöntem)
       if (cameraRunning && html5QrCode) {
         await html5QrCode.stop();
         cameraRunning = false;
         document.getElementById("camera").style.display = "none";
-        // Yeni kamera ile başlat
-        setTimeout(() => document.getElementById('startCameraBtn').click(), 350);
-      } else {
-        document.getElementById('startCameraBtn').click();
       }
+      currentCameraIndex = (currentCameraIndex + 1) % cameraDevices.length;
+      setTimeout(() => document.getElementById('startCameraBtn').click(), 350);
     };
+    // Sayfa açılışında barcode input focuslansın
+    window.onload = function() {
+      if (!cameraRunning) barcodeInput.focus();
+    }
   </script>
 </body>
 </html>
