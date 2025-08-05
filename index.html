@@ -282,52 +282,14 @@
         }
       } catch(e){}
     }
-   <!DOCTYPE html>
-<html lang="tr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Demir Kırtasiye Transfer İrsaliye Hazırlama</title>
-  <style>
-    /* ... --- [Mevcut Tüm CSS'ler Olduğu Gibi Bırakıldı] --- ... */
-    /* Burada CSS'lerin tamamını olduğu gibi bırakabilirsin. */
-    /* Senin kodunla birebir aynı, sadece kamera kutusu ID'si 'camera' olacak! */
-  </style>
-  <script src="https://unpkg.com/@ericblade/quagga2@1.2.8/dist/quagga.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-</head>
-<body>
-  <!-- ... --- [Tüm Butonlar, Alanlar, Popup ve Yapı SENİN HTML'İNLE AYNI!] --- ... -->
-  <!-- Kısacası, verdiğin kodun body kısmı hiç değişmedi, yalnızca script içinde kamera kısmı değişti -->
-  <!-- ÖNEMLİ: id="camera" olan div aynen korunacak! -->
-  <!-- ... diğer alanlar ... -->
-
-  <!-- Kamera Görüntüsü -->
-  <div id="camera" style="width:95%;max-width:320px;border:2px solid #3498db;border-radius:8px;margin:10px auto;height:200px;display:none;"></div>
-  <!-- ... --- [Diğer tüm HTML ve popup alanları olduğu gibi bırakıldı] --- ... -->
-
-  <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
-  <audio id="errorSound" src="https://actions.google.com/sounds/v1/alarms/beep_long.ogg"></audio>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-  <script>
-    // ====================== DEĞİŞKENLER ve EXPORT/IMPORT (hiç değişmedi) =========================
-    // ... Senin kodun aynen buraya gelecek ...
-
-    // ====================== KAMERA MODÜLÜ – QUAGGAJS ENTEGRE =========================
-    let quaggaStarted = false;
+    // ====================== KAMERA MODÜLÜ – Tam Stabil vFinal =========================
+    let html5QrCode = null;
     let cameraDevices = [];
-    let currentCameraIndex = 0;
     let cameraRunning = false;
-    let lastScannedCode = null;
-    let barcodeInput = document.getElementById('manualBarcode');
-
+    let currentCameraIndex = 0;
     async function getCameraDevices() {
-      // QuaggaJS ile kameraları çek
       try {
-        let devices = await navigator.mediaDevices.enumerateDevices();
-        cameraDevices = devices.filter(d => d.kind === 'videoinput');
+        cameraDevices = await Html5Qrcode.getCameras();
         if (!cameraDevices.length) {
           alert("Kamera bulunamadı!");
           return false;
@@ -338,92 +300,68 @@
         return false;
       }
     }
-
-    // Kamera başlatma (her zaman environment kamera ile başlatır, istersen değiştir)
-    async function startCameraQuagga() {
+    async function startCameraAuto() {
+      autoRestartCamera = true;
       if (cameraRunning) return;
       if (!await getCameraDevices()) return;
+      if (!html5QrCode) html5QrCode = new Html5Qrcode("camera");
+      const camId = cameraDevices[currentCameraIndex].id;
       document.getElementById("camera").style.display = "block";
       barcodeInput.blur();
       barcodeInput.setAttribute('readonly', true);
-
-      // Eğer daha önce başlatıldıysa tekrar başlatmadan devam
-      if (quaggaStarted) {
-        Quagga.start();
-        cameraRunning = true;
-        return;
-      }
-
-      Quagga.init({
-        inputStream: {
-          type: "LiveStream",
-          target: document.getElementById("camera"),
-          constraints: {
-            facingMode: "environment",
-            deviceId: cameraDevices[currentCameraIndex]?.deviceId || undefined,
-            width: { ideal: 320 },
-            height: { ideal: 200 }
-          }
+      scrollToCamera();
+      html5QrCode.start(
+        camId,
+        { fps: 15, qrbox: {width: 220, height: 140} },
+        (decodedText) => {
+          playBeepAndVibrate(true);
+          checkBarcode(decodedText);
+          setTimeout(() => {
+            if (autoRestartCamera) restartCameraStream();
+          }, 400);
         },
-        decoder: {
-          readers: ["ean_reader", "code_128_reader"] // İstersen başka tipler ekleyebilirsin
-        },
-        locate: true
-      }, function(err) {
-        if (err) {
-          alert("Kamera başlatılamadı: " + err);
-          document.getElementById("camera").style.display = "none";
-          cameraRunning = false;
-          barcodeInput.removeAttribute('readonly');
-          return;
-        }
-        Quagga.start();
-        quaggaStarted = true;
+        (errorMessage) => {}
+      ).then(() => {
         cameraRunning = true;
-      });
-
-      Quagga.onDetected(data => {
-        const code = data.codeResult.code;
-        if (lastScannedCode === code) return; // Aynı barkodu arka arkaya okumasın
-        lastScannedCode = code;
-
-        playBeepAndVibrate(true);
-        checkBarcode(code);
-
-        // 1.2 saniye sonra aynı barkodu tekrar okumasına izin ver
-        setTimeout(() => { lastScannedCode = null; }, 1200);
+      }).catch(err => {
+        alert("Kamera başlatılamadı: " + err);
+        document.getElementById("camera").style.display = "none";
+        cameraRunning = false;
+        barcodeInput.removeAttribute('readonly');
       });
     }
-
-    // Kamera durdurma
+    async function restartCameraStream() {
+      if (!html5QrCode || !cameraRunning) return;
+      await html5QrCode.stop();
+      cameraRunning = false;
+      document.getElementById("camera").style.display = "none";
+      setTimeout(startCameraAuto, 200);
+    }
     document.getElementById('stopCameraBtn').onclick = async () => {
-      if (cameraRunning) {
-        Quagga.stop();
+      autoRestartCamera = false;
+      if (html5QrCode && cameraRunning) {
+        await html5QrCode.stop();
         cameraRunning = false;
         document.getElementById("camera").style.display = "none";
         barcodeInput.removeAttribute('readonly');
         safeFocusBarcodeInput();
       }
     };
-
-    // Kamera açma
-    document.getElementById('startCameraBtn').onclick = startCameraQuagga;
-
-    // Kamera değiştirme
+    document.getElementById('startCameraBtn').onclick = startCameraAuto;
     document.getElementById('switchBtn').onclick = async () => {
       if (!await getCameraDevices()) return;
       if (cameraDevices.length < 2) {
         alert("Başka kamera yok.");
         return;
       }
-      if (cameraRunning) {
-        Quagga.stop();
+      if (cameraRunning && html5QrCode) {
+        await html5QrCode.stop();
         cameraRunning = false;
+        document.getElementById("camera").style.display = "none";
       }
       currentCameraIndex = (currentCameraIndex + 1) % cameraDevices.length;
-      setTimeout(startCameraQuagga, 350);
+      setTimeout(startCameraAuto, 350);
     };
-
     function playBeepAndVibrate(success = true) {
       try {
         let audio = success ? document.getElementById('successSound') : document.getElementById('errorSound');
@@ -431,7 +369,6 @@
       } catch {}
       if (navigator.vibrate) navigator.vibrate(success ? 120 : [100,80,100]);
     }
-
     function safeFocusBarcodeInput() {
       if (cameraRunning) return;
       if (!isMobile()) {
@@ -439,20 +376,6 @@
       } else {
         barcodeInput.blur();
       }
-    }
-    function isMobile() {
-      return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
-    }
-
-    // ====================== MEVCUT KODUN DEVAMI =========================
-    // ... Buradan sonrası, verdiğin kodun aynısı, kamera hariç hiçbir şey değişmedi ...
-
-    // checkBarcode(), renderProducts(), diğer popup, export/import fonksiyonları ...
-    // ... tüm orijinal script blokları aynen devam edecek ...
-
-  </script>
-</body>
-</html>
     }
     function isMobile() {
       return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
@@ -601,13 +524,13 @@
         const approved = filtered.filter(p => p.scannedStatus[branch] === 'approved').length;
         const percent = total ? Math.round((approved/total)*100) : 0;
         const done = approved === total && total > 0;
-        barHtml += `<span style="margin-right:16px;">
+        barHtml += <span style="margin-right:16px;">
           <b>${branch}:</b>
           <span class="branch-progress-bar${done?' done':''}">
             <span class="branch-progress-fill" style="width:${percent}%;background:${done?'#26d07c':'#27ae60'}"></span>
           </span>
           <span class="branch-progress-label">${approved}/${total} (%${percent})${done?" ✔️":""}</span>
-        </span>`;
+        </span>;
       });
       document.getElementById('progressBar').innerHTML = barHtml;
       products.forEach(p => {
@@ -621,7 +544,7 @@
         div.onclick = () => openPopup(p);
         const headerDiv = document.createElement('div');
         headerDiv.className = 'product-header';
-        headerDiv.innerHTML = `<span>${p.Barkodu} - ${p.Adi}</span><span>${p.Adet} ADET</span>`;
+        headerDiv.innerHTML = <span>${p.Barkodu} - ${p.Adi}</span><span>${p.Adet} ADET</span>;
         div.appendChild(headerDiv);
         const branchDiv = document.createElement('div');
         branchDiv.className = 'branch-status';
@@ -629,8 +552,8 @@
           if (p[branch] && p[branch] > 0) {
             const status = p.scannedStatus[branch] || 'pending';
             const span = document.createElement('span');
-            span.className = `branch-tag ${status}`;
-            span.textContent = `${branch}: ${p[branch]}`;
+            span.className = branch-tag ${status};
+            span.textContent = ${branch}: ${p[branch]};
             branchDiv.appendChild(span);
           }
         });
@@ -660,7 +583,7 @@
     }
     function openPopup(product) {
       currentProduct = product;
-      popupProductName.textContent = `Barkod: ${product.Barkodu}`;
+      popupProductName.textContent = Barkod: ${product.Barkodu};
       popupProductDesc.textContent = product.Adi;
       popupTable.innerHTML = '';
       ["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"].forEach(branch => {
@@ -685,7 +608,7 @@
       selectedBranch = branch;
       currentProduct = product;
       branchPopupBranch.textContent = branch.toUpperCase();
-      branchPopupProduct.textContent = `${product.Barkodu} - ${product.Adi}`;
+      branchPopupProduct.textContent = ${product.Barkodu} - ${product.Adi};
       branchQty.textContent = (product[branch] || 0) + " ADET";
       branchPopupOverlay.style.display = 'flex';
     }
@@ -750,7 +673,7 @@
       }
       filtered.slice(0, 18).forEach(p => {
         let li = document.createElement("li");
-        li.innerHTML = `<b>${p.Barkodu}</b> - ${p.Adi}`;
+        li.innerHTML = <b>${p.Barkodu}</b> - ${p.Adi};
         li.onclick = () => { searchPopup.style.display="none"; openPopup(p); };
         searchResults.appendChild(li);
       });
