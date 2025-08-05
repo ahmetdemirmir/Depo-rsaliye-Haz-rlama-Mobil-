@@ -81,6 +81,7 @@
     #searchResults { list-style:none; margin:0; padding:0; max-height:220px; overflow-y:auto;}
     #searchResults li { padding:10px 5px; border-bottom:1px solid #e2e2e2; font-size:17px; text-align:left; cursor:pointer;}
     #searchResults li:hover { background:#ecf0f1; }
+    /* === ŞUBE % BAR (YENİ) === */
     .branch-progress-bar {
       display: inline-block;
       vertical-align: middle;
@@ -121,6 +122,7 @@
     <button id="stopCameraBtn">📷 Kamerayı Kapat</button>
     <button id="switchBtn">📷 Kamerayı Değiştir</button>
     <button id="openSearchBtn">🔍 Barkod/Ad Ara</button>
+    <!-- === EKLEMELER (EXPORT/IMPORT) === -->
     <button id="exportBtn" style="background:#ffd700;color:#222;">İlerlemeyi Dışa Aktar</button>
     <button id="importBtn" style="background:#1abc9c;color:#fff;">İlerleme Yükle</button>
   </div>
@@ -146,7 +148,7 @@
   </div>
   <div id="errorOverlay">
     <div id="errorContent">
-      <h2 style="color:#e74c3c;">Ürün Bu İrsaliye Değil!</h2>
+      <h2 style="color:#e74c3c;">Ürün Bu İrsaliyede Değil!</h2>
       <button onclick="closeErrorPopup()">Kapat</button>
     </div>
   </div>
@@ -190,6 +192,7 @@
       <button onclick="closeImportPopup()">Kapat</button>
     </div>
   </div>
+  <!-- === YENİ: OVERWRITE/RESET POPUP === -->
   <div id="overwritePopup">
     <div id="overwriteContent">
       <h2>Dikkat!</h2>
@@ -200,11 +203,8 @@
   </div>
   <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
   <audio id="errorSound" src="https://actions.google.com/sounds/v1/alarms/beep_long.ogg"></audio>
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script>
-    // ====================== DEĞİŞKENLER ve EXPORT/IMPORT (aynen bırakıldı) =========================
+    // ====================== MEVCUT DEĞİŞKENLER =========================
     let products = [];
     let currentProduct = null;
     let selectedBranch = null;
@@ -220,9 +220,10 @@
     const successSound = document.getElementById('successSound');
     const errorSound = document.getElementById('errorSound');
     document.querySelector('.btnfile').onclick = function(){ document.getElementById('fileInput').click(); };
-
     // ====================== EXPORT/IMPORT YENİ =========================
+    // -- localStorage Key
     const STORAGE_KEY = "demirkirtasiye_transfer_v1";
+    // -- Export
     document.getElementById('exportBtn').onclick = () => {
       const toExport = {
         products, progressBar: document.getElementById('progressBar').innerHTML
@@ -240,6 +241,7 @@
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }
+    // -- Import
     document.getElementById('importBtn').onclick = () => {
       document.getElementById('importData').value = "";
       document.getElementById('importFileInput').value = "";
@@ -268,6 +270,7 @@
       };
       reader.readAsText(file, "UTF-8");
     }
+    // -- Kayıt
     function saveProgress() {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify({products})); } catch(e){}
     }
@@ -281,111 +284,6 @@
           renderProducts();
         }
       } catch(e){}
-    }
-    // ====================== KAMERA MODÜLÜ – Tam Stabil vFinal =========================
-    let html5QrCode = null;
-    let cameraDevices = [];
-    let cameraRunning = false;
-    let currentCameraIndex = 0;
-    async function getCameraDevices() {
-      try {
-        cameraDevices = await Html5Qrcode.getCameras();
-        if (!cameraDevices.length) {
-          alert("Kamera bulunamadı!");
-          return false;
-        }
-        return true;
-      } catch {
-        alert("Kamera cihazları çekilemedi!");
-        return false;
-      }
-    }
-    async function startCameraAuto() {
-      autoRestartCamera = true;
-      if (cameraRunning) return;
-      if (!await getCameraDevices()) return;
-      if (!html5QrCode) html5QrCode = new Html5Qrcode("camera");
-      const camId = cameraDevices[currentCameraIndex].id;
-      document.getElementById("camera").style.display = "block";
-      barcodeInput.blur();
-      barcodeInput.setAttribute('readonly', true);
-      scrollToCamera();
-      html5QrCode.start(
-        camId,
-        { fps: 15, qrbox: {width: 220, height: 140} },
-        (decodedText) => {
-          playBeepAndVibrate(true);
-          checkBarcode(decodedText);
-          setTimeout(() => {
-            if (autoRestartCamera) restartCameraStream();
-          }, 400);
-        },
-        (errorMessage) => {}
-      ).then(() => {
-        cameraRunning = true;
-      }).catch(err => {
-        alert("Kamera başlatılamadı: " + err);
-        document.getElementById("camera").style.display = "none";
-        cameraRunning = false;
-        barcodeInput.removeAttribute('readonly');
-      });
-    }
-    async function restartCameraStream() {
-      if (!html5QrCode || !cameraRunning) return;
-      await html5QrCode.stop();
-      cameraRunning = false;
-      document.getElementById("camera").style.display = "none";
-      setTimeout(startCameraAuto, 200);
-    }
-    document.getElementById('stopCameraBtn').onclick = async () => {
-      autoRestartCamera = false;
-      if (html5QrCode && cameraRunning) {
-        await html5QrCode.stop();
-        cameraRunning = false;
-        document.getElementById("camera").style.display = "none";
-        barcodeInput.removeAttribute('readonly');
-        safeFocusBarcodeInput();
-      }
-    };
-    document.getElementById('startCameraBtn').onclick = startCameraAuto;
-    document.getElementById('switchBtn').onclick = async () => {
-      if (!await getCameraDevices()) return;
-      if (cameraDevices.length < 2) {
-        alert("Başka kamera yok.");
-        return;
-      }
-      if (cameraRunning && html5QrCode) {
-        await html5QrCode.stop();
-        cameraRunning = false;
-        document.getElementById("camera").style.display = "none";
-      }
-      currentCameraIndex = (currentCameraIndex + 1) % cameraDevices.length;
-      setTimeout(startCameraAuto, 350);
-    };
-    function playBeepAndVibrate(success = true) {
-      try {
-        let audio = success ? document.getElementById('successSound') : document.getElementById('errorSound');
-        if (audio) { audio.currentTime = 0; audio.play(); }
-      } catch {}
-      if (navigator.vibrate) navigator.vibrate(success ? 120 : [100,80,100]);
-    }
-    function safeFocusBarcodeInput() {
-      if (cameraRunning) return;
-      if (!isMobile()) {
-        barcodeInput.focus();
-      } else {
-        barcodeInput.blur();
-      }
-    }
-    function isMobile() {
-      return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
-    }
-    function scrollToCamera() {
-      if (!isMobile()) return;
-      setTimeout(() => {
-        const cam = document.getElementById("camera");
-        if (cam && cam.style.display !== "none") cam.scrollIntoView({behavior: "smooth", block:"center"});
-      }, 400);
     }
     // ====================== MEVCUT KODUN DEVAMI =========================
     function checkBarcode(code) {
@@ -407,6 +305,7 @@
       safeFocusBarcodeInput();
       if (autoRestartCamera) startCameraAuto();
     }
+    // ====================== SIFIRLAMA ONAY POPUP YENİ =========================
     function openOverwritePopup(action) {
       document.getElementById('overwritePopup').style.display = "flex";
       document.getElementById('overwriteYesBtn').onclick = function() {
@@ -417,6 +316,7 @@
     function closeOverwritePopup() {
       document.getElementById('overwritePopup').style.display = "none";
     }
+    // ================ Dosya yüklerken ilerleme varsa onayla (YENİ) ===========
     let pendingFileLoad = null;
     document.getElementById('fileInput').addEventListener('change', function(event) {
       if (products.length > 0) {
@@ -466,6 +366,7 @@
       };
       reader.readAsArrayBuffer(file);
     }
+    // ============ Google Sheets Yükleme Öncesi Uyarı (EK) ===========
     document.getElementById('loadFromSheetsBtn').onclick = function() {
       if (products.length > 0) {
         openOverwritePopup(() => { loadFromSheets(); products=[]; });
@@ -513,6 +414,15 @@
         })
         .catch(e => alert("Sheets okuma hatası: " + e));
     }
+    // ====================== UX İYİLEŞTİRME KAMERA SCROLL ======================
+    function scrollToCamera() {
+      if (!isMobile()) return;
+      setTimeout(() => {
+        const cam = document.getElementById("camera");
+        if (cam && cam.style.display !== "none") cam.scrollIntoView({behavior: "smooth", block:"center"});
+      }, 400);
+    }
+    // ====================== PROGRESS BAR % (EK) =======================
     function renderProducts() {
       const container = document.getElementById('productList');
       container.innerHTML = '';
@@ -524,13 +434,13 @@
         const approved = filtered.filter(p => p.scannedStatus[branch] === 'approved').length;
         const percent = total ? Math.round((approved/total)*100) : 0;
         const done = approved === total && total > 0;
-        barHtml += <span style="margin-right:16px;">
+        barHtml += `<span style="margin-right:16px;">
           <b>${branch}:</b>
           <span class="branch-progress-bar${done?' done':''}">
             <span class="branch-progress-fill" style="width:${percent}%;background:${done?'#26d07c':'#27ae60'}"></span>
           </span>
           <span class="branch-progress-label">${approved}/${total} (%${percent})${done?" ✔️":""}</span>
-        </span>;
+        </span>`;
       });
       document.getElementById('progressBar').innerHTML = barHtml;
       products.forEach(p => {
@@ -544,7 +454,7 @@
         div.onclick = () => openPopup(p);
         const headerDiv = document.createElement('div');
         headerDiv.className = 'product-header';
-        headerDiv.innerHTML = <span>${p.Barkodu} - ${p.Adi}</span><span>${p.Adet} ADET</span>;
+        headerDiv.innerHTML = `<span>${p.Barkodu} - ${p.Adi}</span><span>${p.Adet} ADET</span>`;
         div.appendChild(headerDiv);
         const branchDiv = document.createElement('div');
         branchDiv.className = 'branch-status';
@@ -552,8 +462,8 @@
           if (p[branch] && p[branch] > 0) {
             const status = p.scannedStatus[branch] || 'pending';
             const span = document.createElement('span');
-            span.className = branch-tag ${status};
-            span.textContent = ${branch}: ${p[branch]};
+            span.className = `branch-tag ${status}`;
+            span.textContent = `${branch}: ${p[branch]}`;
             branchDiv.appendChild(span);
           }
         });
@@ -566,6 +476,7 @@
       });
       saveProgress();
     }
+    // ====================== MEVCUT KODUN DEVAMI =========================
     function filterByBranch(branch) {
       currentFilter = branch;
       unassignedFilter = false;
@@ -583,7 +494,7 @@
     }
     function openPopup(product) {
       currentProduct = product;
-      popupProductName.textContent = Barkod: ${product.Barkodu};
+      popupProductName.textContent = `Barkod: ${product.Barkodu}`;
       popupProductDesc.textContent = product.Adi;
       popupTable.innerHTML = '';
       ["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"].forEach(branch => {
@@ -608,7 +519,7 @@
       selectedBranch = branch;
       currentProduct = product;
       branchPopupBranch.textContent = branch.toUpperCase();
-      branchPopupProduct.textContent = ${product.Barkodu} - ${product.Adi};
+      branchPopupProduct.textContent = `${product.Barkodu} - ${product.Adi}`;
       branchQty.textContent = (product[branch] || 0) + " ADET";
       branchPopupOverlay.style.display = 'flex';
     }
@@ -642,10 +553,91 @@
       safeFocusBarcodeInput();
       if (autoRestartCamera) setTimeout(startCameraAuto, 500);
     };
+    // KAMERA ALT YAPISI
+    let html5QrCode = null;
+    let cameraDevices = [];
+    let cameraRunning = false;
+    let currentCameraIndex = 0;
+    async function getCameraDevices() {
+      cameraDevices = await Html5Qrcode.getCameras();
+      if (!cameraDevices.length) {
+        alert("Kamera bulunamadı!");
+        return false;
+      }
+      return true;
+    }
+    async function startCameraAuto() {
+      autoRestartCamera = true;
+      if (cameraRunning) return;
+      if (!await getCameraDevices()) return;
+      if (!html5QrCode) html5QrCode = new Html5Qrcode("camera");
+      const camId = cameraDevices[currentCameraIndex].id;
+      document.getElementById("camera").style.display = "block";
+      barcodeInput.blur();
+      barcodeInput.setAttribute('readonly', true);
+      scrollToCamera();
+      html5QrCode.start(
+        camId,
+        { fps: 15, qrbox: {width: 220, height: 140} },
+        (decodedText) => {
+          html5QrCode.stop().then(() => {
+            cameraRunning = false;
+            document.getElementById("camera").style.display = "none";
+            barcodeInput.removeAttribute('readonly');
+          });
+          checkBarcode(decodedText);
+        },
+        (errorMessage) => {}
+      ).then(() => {
+        cameraRunning = true;
+      }).catch(err => {
+        alert("Kamera başlatılamadı: " + err);
+        document.getElementById("camera").style.display = "none";
+        cameraRunning = false;
+        barcodeInput.removeAttribute('readonly');
+      });
+    }
+    document.getElementById('startCameraBtn').onclick = startCameraAuto;
+    document.getElementById('stopCameraBtn').onclick = async () => {
+      autoRestartCamera = false;
+      if (html5QrCode && cameraRunning) {
+        await html5QrCode.stop();
+        cameraRunning = false;
+        document.getElementById("camera").style.display = "none";
+        barcodeInput.removeAttribute('readonly');
+        safeFocusBarcodeInput();
+      }
+    };
+    document.getElementById('switchBtn').onclick = async () => {
+      if (!await getCameraDevices()) return;
+      if (cameraDevices.length < 2) {
+        alert("Başka kamera yok.");
+        return;
+      }
+      if (cameraRunning && html5QrCode) {
+        await html5QrCode.stop();
+        cameraRunning = false;
+        document.getElementById("camera").style.display = "none";
+      }
+      currentCameraIndex = (currentCameraIndex + 1) % cameraDevices.length;
+      setTimeout(startCameraAuto, 350);
+    };
+    function isMobile() {
+      return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+    }
+    function safeFocusBarcodeInput() {
+      if (cameraRunning) return;
+      if (!isMobile()) {
+        barcodeInput.focus();
+      } else {
+        barcodeInput.blur();
+      }
+    }
     window.onload = function() {
       loadProgress();
       safeFocusBarcodeInput();
     }
+    // ARAMA POPUP
     const searchPopup = document.getElementById('searchPopup');
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
@@ -673,7 +665,7 @@
       }
       filtered.slice(0, 18).forEach(p => {
         let li = document.createElement("li");
-        li.innerHTML = <b>${p.Barkodu}</b> - ${p.Adi};
+        li.innerHTML = `<b>${p.Barkodu}</b> - ${p.Adi}`;
         li.onclick = () => { searchPopup.style.display="none"; openPopup(p); };
         searchResults.appendChild(li);
       });
@@ -687,3 +679,4 @@
   </script>
 </body>
 </html>
+
