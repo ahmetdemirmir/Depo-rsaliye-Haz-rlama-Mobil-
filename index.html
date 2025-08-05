@@ -282,14 +282,52 @@
         }
       } catch(e){}
     }
-    // ====================== KAMERA MODÜLÜ – Tam Stabil vFinal =========================
-    let html5QrCode = null;
+   <!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demir Kırtasiye Transfer İrsaliye Hazırlama</title>
+  <style>
+    /* ... --- [Mevcut Tüm CSS'ler Olduğu Gibi Bırakıldı] --- ... */
+    /* Burada CSS'lerin tamamını olduğu gibi bırakabilirsin. */
+    /* Senin kodunla birebir aynı, sadece kamera kutusu ID'si 'camera' olacak! */
+  </style>
+  <script src="https://unpkg.com/@ericblade/quagga2@1.2.8/dist/quagga.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+  <!-- ... --- [Tüm Butonlar, Alanlar, Popup ve Yapı SENİN HTML'İNLE AYNI!] --- ... -->
+  <!-- Kısacası, verdiğin kodun body kısmı hiç değişmedi, yalnızca script içinde kamera kısmı değişti -->
+  <!-- ÖNEMLİ: id="camera" olan div aynen korunacak! -->
+  <!-- ... diğer alanlar ... -->
+
+  <!-- Kamera Görüntüsü -->
+  <div id="camera" style="width:95%;max-width:320px;border:2px solid #3498db;border-radius:8px;margin:10px auto;height:200px;display:none;"></div>
+  <!-- ... --- [Diğer tüm HTML ve popup alanları olduğu gibi bırakıldı] --- ... -->
+
+  <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+  <audio id="errorSound" src="https://actions.google.com/sounds/v1/alarms/beep_long.ogg"></audio>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script>
+    // ====================== DEĞİŞKENLER ve EXPORT/IMPORT (hiç değişmedi) =========================
+    // ... Senin kodun aynen buraya gelecek ...
+
+    // ====================== KAMERA MODÜLÜ – QUAGGAJS ENTEGRE =========================
+    let quaggaStarted = false;
     let cameraDevices = [];
-    let cameraRunning = false;
     let currentCameraIndex = 0;
+    let cameraRunning = false;
+    let lastScannedCode = null;
+    let barcodeInput = document.getElementById('manualBarcode');
+
     async function getCameraDevices() {
+      // QuaggaJS ile kameraları çek
       try {
-        cameraDevices = await Html5Qrcode.getCameras();
+        let devices = await navigator.mediaDevices.enumerateDevices();
+        cameraDevices = devices.filter(d => d.kind === 'videoinput');
         if (!cameraDevices.length) {
           alert("Kamera bulunamadı!");
           return false;
@@ -300,68 +338,92 @@
         return false;
       }
     }
-    async function startCameraAuto() {
-      autoRestartCamera = true;
+
+    // Kamera başlatma (her zaman environment kamera ile başlatır, istersen değiştir)
+    async function startCameraQuagga() {
       if (cameraRunning) return;
       if (!await getCameraDevices()) return;
-      if (!html5QrCode) html5QrCode = new Html5Qrcode("camera");
-      const camId = cameraDevices[currentCameraIndex].id;
       document.getElementById("camera").style.display = "block";
       barcodeInput.blur();
       barcodeInput.setAttribute('readonly', true);
-      scrollToCamera();
-      html5QrCode.start(
-        camId,
-        { fps: 15, qrbox: {width: 220, height: 140} },
-        (decodedText) => {
-          playBeepAndVibrate(true);
-          checkBarcode(decodedText);
-          setTimeout(() => {
-            if (autoRestartCamera) restartCameraStream();
-          }, 400);
-        },
-        (errorMessage) => {}
-      ).then(() => {
+
+      // Eğer daha önce başlatıldıysa tekrar başlatmadan devam
+      if (quaggaStarted) {
+        Quagga.start();
         cameraRunning = true;
-      }).catch(err => {
-        alert("Kamera başlatılamadı: " + err);
-        document.getElementById("camera").style.display = "none";
-        cameraRunning = false;
-        barcodeInput.removeAttribute('readonly');
+        return;
+      }
+
+      Quagga.init({
+        inputStream: {
+          type: "LiveStream",
+          target: document.getElementById("camera"),
+          constraints: {
+            facingMode: "environment",
+            deviceId: cameraDevices[currentCameraIndex]?.deviceId || undefined,
+            width: { ideal: 320 },
+            height: { ideal: 200 }
+          }
+        },
+        decoder: {
+          readers: ["ean_reader", "code_128_reader"] // İstersen başka tipler ekleyebilirsin
+        },
+        locate: true
+      }, function(err) {
+        if (err) {
+          alert("Kamera başlatılamadı: " + err);
+          document.getElementById("camera").style.display = "none";
+          cameraRunning = false;
+          barcodeInput.removeAttribute('readonly');
+          return;
+        }
+        Quagga.start();
+        quaggaStarted = true;
+        cameraRunning = true;
+      });
+
+      Quagga.onDetected(data => {
+        const code = data.codeResult.code;
+        if (lastScannedCode === code) return; // Aynı barkodu arka arkaya okumasın
+        lastScannedCode = code;
+
+        playBeepAndVibrate(true);
+        checkBarcode(code);
+
+        // 1.2 saniye sonra aynı barkodu tekrar okumasına izin ver
+        setTimeout(() => { lastScannedCode = null; }, 1200);
       });
     }
-    async function restartCameraStream() {
-      if (!html5QrCode || !cameraRunning) return;
-      await html5QrCode.stop();
-      cameraRunning = false;
-      document.getElementById("camera").style.display = "none";
-      setTimeout(startCameraAuto, 200);
-    }
+
+    // Kamera durdurma
     document.getElementById('stopCameraBtn').onclick = async () => {
-      autoRestartCamera = false;
-      if (html5QrCode && cameraRunning) {
-        await html5QrCode.stop();
+      if (cameraRunning) {
+        Quagga.stop();
         cameraRunning = false;
         document.getElementById("camera").style.display = "none";
         barcodeInput.removeAttribute('readonly');
         safeFocusBarcodeInput();
       }
     };
-    document.getElementById('startCameraBtn').onclick = startCameraAuto;
+
+    // Kamera açma
+    document.getElementById('startCameraBtn').onclick = startCameraQuagga;
+
+    // Kamera değiştirme
     document.getElementById('switchBtn').onclick = async () => {
       if (!await getCameraDevices()) return;
       if (cameraDevices.length < 2) {
         alert("Başka kamera yok.");
         return;
       }
-      if (cameraRunning && html5QrCode) {
-        await html5QrCode.stop();
+      if (cameraRunning) {
+        Quagga.stop();
         cameraRunning = false;
-        document.getElementById("camera").style.display = "none";
       }
       currentCameraIndex = (currentCameraIndex + 1) % cameraDevices.length;
-      setTimeout(startCameraAuto, 350);
+      setTimeout(startCameraQuagga, 350);
     };
+
     function playBeepAndVibrate(success = true) {
       try {
         let audio = success ? document.getElementById('successSound') : document.getElementById('errorSound');
@@ -369,6 +431,7 @@
       } catch {}
       if (navigator.vibrate) navigator.vibrate(success ? 120 : [100,80,100]);
     }
+
     function safeFocusBarcodeInput() {
       if (cameraRunning) return;
       if (!isMobile()) {
@@ -376,6 +439,20 @@
       } else {
         barcodeInput.blur();
       }
+    }
+    function isMobile() {
+      return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+    }
+
+    // ====================== MEVCUT KODUN DEVAMI =========================
+    // ... Buradan sonrası, verdiğin kodun aynısı, kamera hariç hiçbir şey değişmedi ...
+
+    // checkBarcode(), renderProducts(), diğer popup, export/import fonksiyonları ...
+    // ... tüm orijinal script blokları aynen devam edecek ...
+
+  </script>
+</body>
+</html>
     }
     function isMobile() {
       return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
