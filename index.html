@@ -122,7 +122,6 @@
     <button id="stopCameraBtn">📷 Kamerayı Kapat</button>
     <button id="switchBtn">📷 Kamerayı Değiştir</button>
     <button id="openSearchBtn">🔍 Barkod/Ad Ara</button>
-    <!-- === EKLEMELER (EXPORT/IMPORT) === -->
     <button id="exportBtn" style="background:#ffd700;color:#222;">İlerlemeyi Dışa Aktar</button>
     <button id="importBtn" style="background:#1abc9c;color:#fff;">İlerleme Yükle</button>
   </div>
@@ -553,32 +552,48 @@
       safeFocusBarcodeInput();
       if (autoRestartCamera) setTimeout(startCameraAuto, 500);
     };
-    // KAMERA ALT YAPISI
+
+    // =============== GELİŞMİŞ MOBİL KAMERA ENTEGRASYONU ===============
     let html5QrCode = null;
     let cameraDevices = [];
     let cameraRunning = false;
     let currentCameraIndex = 0;
+
     async function getCameraDevices() {
-      cameraDevices = await Html5Qrcode.getCameras();
-      if (!cameraDevices.length) {
-        alert("Kamera bulunamadı!");
+      try {
+        cameraDevices = (await Html5Qrcode.getCameras()) || [];
+        if (!cameraDevices.length) {
+          alert("Kamera bulunamadı!");
+          return false;
+        }
+        return true;
+      } catch (e) {
+        alert("Kamera erişilemedi!");
         return false;
       }
-      return true;
     }
+
     async function startCameraAuto() {
       autoRestartCamera = true;
       if (cameraRunning) return;
       if (!await getCameraDevices()) return;
-      if (!html5QrCode) html5QrCode = new Html5Qrcode("camera");
+      // Eğer daha önce başlatılmışsa temizle
+      if (html5QrCode) {
+        await html5QrCode.stop().catch(()=>{});
+        html5QrCode.clear();
+        html5QrCode = null;
+      }
+      html5QrCode = new Html5Qrcode("camera", /* verbose= */ false);
+
       const camId = cameraDevices[currentCameraIndex].id;
       document.getElementById("camera").style.display = "block";
+      // Klavye kapanması için inputa readonly ver
       barcodeInput.blur();
       barcodeInput.setAttribute('readonly', true);
       scrollToCamera();
       html5QrCode.start(
-        camId,
-        { fps: 15, qrbox: {width: 220, height: 140} },
+        {deviceId: {exact: camId}},
+        { fps: 15, qrbox: {width: 220, height: 140}, aspectRatio:1.7 },
         (decodedText) => {
           html5QrCode.stop().then(() => {
             cameraRunning = false;
@@ -587,9 +602,11 @@
           });
           checkBarcode(decodedText);
         },
-        (errorMessage) => {}
+        (errorMessage) => { /* console.log(errorMessage); */ }
       ).then(() => {
         cameraRunning = true;
+        // Mobilde gereksiz klavye açılmasın, focusu inputtan uzak tut
+        setTimeout(()=>barcodeInput.blur(), 250);
       }).catch(err => {
         alert("Kamera başlatılamadı: " + err);
         document.getElementById("camera").style.display = "none";
@@ -597,11 +614,14 @@
         barcodeInput.removeAttribute('readonly');
       });
     }
+
     document.getElementById('startCameraBtn').onclick = startCameraAuto;
     document.getElementById('stopCameraBtn').onclick = async () => {
       autoRestartCamera = false;
       if (html5QrCode && cameraRunning) {
         await html5QrCode.stop();
+        html5QrCode.clear();
+        html5QrCode = null;
         cameraRunning = false;
         document.getElementById("camera").style.display = "none";
         barcodeInput.removeAttribute('readonly');
@@ -616,12 +636,15 @@
       }
       if (cameraRunning && html5QrCode) {
         await html5QrCode.stop();
+        html5QrCode.clear();
+        html5QrCode = null;
         cameraRunning = false;
         document.getElementById("camera").style.display = "none";
       }
       currentCameraIndex = (currentCameraIndex + 1) % cameraDevices.length;
       setTimeout(startCameraAuto, 350);
     };
+
     function isMobile() {
       return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
     }
@@ -679,4 +702,3 @@
   </script>
 </body>
 </html>
-
