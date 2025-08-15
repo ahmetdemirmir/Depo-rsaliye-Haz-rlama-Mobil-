@@ -811,15 +811,30 @@
   }
 
   // --- Public controls ---
-  window.startCameraAuto = async function(){
-    autoRestartCamera = true;
+  
+window.startCameraAuto = async function(){
+  if (window.__quaggaInitLock__) return;
+  window.__quaggaInitLock__ = true;
+  try{ autoRestartCamera = true; }catch(e){}
+  try{
     if (!cameraHost) cameraHost = document.getElementById('camera');
-    if (!cameraHost) { alert("Kamera konteyneri yok (#camera)."); return; }
-    cameraHost.style.display = "block"; cameraHost.scrollIntoView({behavior:"smooth", block:"center"});
-    // layout tick
-    await new Promise(function(r){ setTimeout(r, 60); });
-    if (quaggaRunning) return;
-    if (!await loadVideoInputs()) { alert("Kamera bulunamadı!"); return; }
+    if (!cameraHost) { alert("Kamera konteyneri yok (#camera)."); window.__quaggaInitLock__ = false; return; }
+    cameraHost.style.display = "block";
+    if (!cameraHost.style.height) cameraHost.style.height = "360px";
+    try{ cameraHost.innerHTML = ""; }catch(e){}
+    let tries = 0;
+    while ((cameraHost.offsetWidth < 100 || cameraHost.offsetHeight < 100) && tries < 12){
+      await new Promise(r => requestAnimationFrame(r));
+      tries++;
+    }
+    if (cameraHost.offsetWidth < 100 || cameraHost.offsetHeight < 100){
+      cameraHost.style.width = "100%";
+      cameraHost.style.height = "360px";
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    if (quaggaRunning) { window.__quaggaInitLock__ = false; return; }
+    if (!await loadVideoInputs()) { alert("Kamera bulunamadı!"); window.__quaggaInitLock__ = false; return; }
 
     var savedId = localStorage.getItem("prefCamId");
     if (savedId) {
@@ -831,8 +846,8 @@
     if (barcodeInput) { barcodeInput.blur(); barcodeInput.setAttribute('readonly', true); }
 
     Quagga.init(quaggaConfig(devId), function(err) {
-      if (err) { alert("Quagga init hatası: " + err); return; }
-      Quagga.start(); quaggaRunning = true;
+      if (err) { alert("Quagga init hatası: " + err); window.__quaggaInitLock__ = false; return; }
+      Quagga.start(); quaggaRunning = true; window.__quaggaInitLock__ = false;
 
       try {
         var track = Quagga.cameraAccess.getActiveTrack();
@@ -841,6 +856,7 @@
         }
       } catch(e){}
 
+      try { Quagga.offDetected && Quagga.offDetected(); } catch(e){}
       Quagga.onDetected(function(result){
         var code = result && result.codeResult && result.codeResult.code ? result.codeResult.code : null;
         if(!code) return;
@@ -857,16 +873,27 @@
         });
       });
     });
-  };
+  }catch(e){
+    alert("Kamera başlatma hatası: " + e);
+    window.__quaggaInitLock__ = false;
+  }
+};
 
-  window.stopQuagga = function(){
-    return new Promise(function(resolve){
-      try { if (quaggaRunning) { Quagga.stop(); quaggaRunning = false; } } catch(e){}
-      if (cameraHost){ cameraHost.style.display = "none"; try{ cameraHost.innerHTML=""; }catch(e){} }
-      if (barcodeInput) barcodeInput.removeAttribute('readonly');
-      resolve();
-    });
-  };
+
+  
+window.stopQuagga = function(){
+  return new Promise(function(resolve){
+    try { if (Quagga && Quagga.offDetected) Quagga.offDetected(); } catch(e){}
+    try { if (quaggaRunning) { Quagga.stop(); quaggaRunning = false; } } catch(e){}
+    if (cameraHost){
+      cameraHost.style.display = "none";
+      try{ cameraHost.innerHTML = ""; }catch(e){}
+    }
+    if (barcodeInput) barcodeInput.removeAttribute('readonly');
+    resolve();
+  });
+};
+
 
   // Wire existing buttons if present (non-invasive)
   (function(){
