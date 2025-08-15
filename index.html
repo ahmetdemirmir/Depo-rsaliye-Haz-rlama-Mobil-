@@ -105,11 +105,11 @@
       border-color: #26b07c;
     }
   </style>
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
-<style id="cam-safety-style">
+<style id="cam-clean-style">
   #camera{width:100%;max-width:640px;min-height:240px;background:#000;margin:auto;}
   #camera video, #camera canvas { image-rendering: crisp-edges; image-rendering: -webkit-optimize-contrast; transform:none!important; }
 </style>
@@ -685,27 +685,23 @@
   </script>
 <script src="https://unpkg.com/@ericblade/quagga2/dist/quagga.js"></script>
 
-<script>
-// ==== Quagga2 Entegrasyonu (EAN performansı için, non-invasive) ====
+<script id="quagga-clean-integration">
 (function(){
+  // --- State ---
   var quaggaRunning = false;
   var videoDevices = [];
   var currentDeviceIndex = 0;
   var lastCode = null, lastHitAt = 0;
-  var autoRestartCamera = true; // mevcut akışla uyumlu
+  var autoRestartCamera = true;
   var cameraHost = document.getElementById('camera');
   var barcodeInput = document.getElementById('barcodeInput') || document.querySelector('input[type="text"], input[autocomplete="off"]');
+  var successSound = document.getElementById('successSound') || (function(){ var a = new Audio(); return a; })();
 
-  // Güvenli odak
   function safeFocusBarcodeInput(){
     if (!barcodeInput) return;
     try { barcodeInput.removeAttribute('readonly'); barcodeInput.focus(); barcodeInput.select && barcodeInput.select(); } catch(e){}
   }
 
-  // Basit beep; projede varsa onu kullan
-  var successSound = document.getElementById('successSound') || (function(){ var a = new Audio(); return a; })();
-
-  // EAN13 check-digit
   function isValidEAN13(code){
     if(!/^\d{13}$/.test(code)) return false;
     var sum = 0;
@@ -714,14 +710,12 @@
     return check === parseInt(code[12],10);
   }
 
-  // Cihaz listesi
   async function loadVideoInputs(){
     var devices = await navigator.mediaDevices.enumerateDevices();
     videoDevices = devices.filter(function(d){ return d.kind === 'videoinput'; });
     return videoDevices.length > 0;
   }
 
-  // Quagga config
   function quaggaConfig(deviceId){
     return {
       inputStream: {
@@ -735,15 +729,15 @@
         },
         area: { top: "20%", right: "10%", left: "10%", bottom: "20%" }
       },
-      locator: { patchSize: "medium", halfSample: true },
+      locator: { patchSize: "large", halfSample: false }, // keskin profil
       numOfWorkers: Math.max(1, (navigator.hardwareConcurrency||2) - 1),
-      frequency: 8,
+      frequency: 12,
       decoder: { readers: ["ean_reader","ean_8_reader","code_128_reader"] },
       locate: true
     };
   }
 
-  // === Global modal watcher: tüm modallar kapandıktan sonra kamera aç ===
+  // ---- Global modal guard (all closed -> resume) ----
   (function(){
     var resumeAfter = false, debounce;
     function isShown(node){
@@ -767,7 +761,6 @@
         }
       }, 160);
     }
-    // dışa aç
     window.__resumeGuard__ = {
       arm: function(){ resumeAfter = true; },
       pulse: tryResume
@@ -781,7 +774,7 @@
     } catch(e){}
   })();
 
-  // checkBarcode sarmalayıcı: mevcut fonksiyonu koruyup guard'ı aktive et
+  // --- Optional: wrap existing checkBarcode to arm guard ---
   if (window.checkBarcode) {
     var __origCheck = window.checkBarcode;
     window.checkBarcode = function(code){
@@ -789,19 +782,21 @@
       return __origCheck.call(this, code);
     };
   } else {
-    // Projede checkBarcode yoksa no-op
     window.checkBarcode = function(code){
       try { window.__resumeGuard__ && window.__resumeGuard__.arm(); } catch(e){}
       console.log('checkBarcode:', code);
     };
   }
 
-  // Quagga start
+  // --- Public controls ---
   window.startCameraAuto = async function(){
     autoRestartCamera = true;
-    if (quaggaRunning) return;
     if (!cameraHost) cameraHost = document.getElementById('camera');
-    if (!cameraHost) { alert("Kamera konteyneri bulunamadı (#camera)."); return; }
+    if (!cameraHost) { alert("Kamera konteyneri yok (#camera)."); return; }
+    cameraHost.style.display = "block";
+    // layout tick
+    await new Promise(function(r){ setTimeout(r, 60); });
+    if (quaggaRunning) return;
     if (!await loadVideoInputs()) { alert("Kamera bulunamadı!"); return; }
 
     var savedId = localStorage.getItem("prefCamId");
@@ -811,7 +806,6 @@
     }
     var devId = (videoDevices[currentDeviceIndex]||{}).deviceId;
 
-    cameraHost.style.display = "block";
     if (barcodeInput) { barcodeInput.blur(); barcodeInput.setAttribute('readonly', true); }
 
     Quagga.init(quaggaConfig(devId), function(err) {
@@ -845,105 +839,38 @@
 
   window.stopQuagga = function(){
     return new Promise(function(resolve){
-      try {
-        if (quaggaRunning) { Quagga.stop(); quaggaRunning = false; }
-      } catch(e){}
+      try { if (quaggaRunning) { Quagga.stop(); quaggaRunning = false; } } catch(e){}
       if (cameraHost) cameraHost.style.display = "none";
       if (barcodeInput) barcodeInput.removeAttribute('readonly');
       resolve();
     });
   };
 
-  // Stop butonu
+  // Wire existing buttons if present (non-invasive)
   (function(){
-    var btn = document.getElementById('stopCameraBtn');
-    if (btn) {
-      var old = btn.onclick;
-      btn.onclick = async function(ev){
-        try { autoRestartCamera = false; } catch(e){}
+    var stopBtn = document.getElementById('stopCameraBtn');
+    if (stopBtn){
+      var old = stopBtn.onclick;
+      stopBtn.onclick = async function(ev){
+        autoRestartCamera = false;
         await window.stopQuagga();
         safeFocusBarcodeInput();
-        if (old) try { old.call(this, ev); } catch(e){}
+        if (old) try{ old.call(this, ev) }catch(e){}
       };
     }
-  })();
-
-  // Switch butonu
-  (function(){
-    var btn = document.getElementById('switchBtn');
-    if (btn) {
-      var old = btn.onclick;
-      btn.onclick = async function(ev){
+    var swBtn = document.getElementById('switchBtn');
+    if (swBtn){
+      var old2 = swBtn.onclick;
+      swBtn.onclick = async function(ev){
         if (!await loadVideoInputs()) { alert("Başka kamera yok."); return; }
         currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
         try { localStorage.setItem("prefCamId", videoDevices[currentDeviceIndex].deviceId); } catch(e){}
         await window.stopQuagga();
         setTimeout(window.startCameraAuto, 350);
-        if (old) try { old.call(this, ev); } catch(e){}
+        if (old2) try{ old2.call(this, ev) }catch(e){}
       };
     }
   })();
-
-  // Eğer projedeki bir başlat butonu startCameraAuto'yu çağırıyorsa, bu fonksiyon override edildiği için Quagga ile çalışacak.
-  // Otomatik başlat isteyen sayfalar için (isteğe bağlı):
-  // document.addEventListener('DOMContentLoaded', function(){ /* window.startCameraAuto(); */ });
-})();
-</script>
-
-
-<script id="cam-safety-wrap">
-(function(){
-  function ensureCamHost(){
-    var el = document.getElementById('camera');
-    if(!el){
-      el = document.createElement('div');
-      el.id = 'camera';
-      el.style.cssText = 'width:100%;max-width:640px;min-height:240px;background:#000;margin:auto;';
-      document.body.appendChild(el);
-    } else {
-      // enforce size
-      if(!el.style.minHeight) el.style.minHeight = '240px';
-      if(!el.style.background) el.style.background = '#000';
-    }
-    return el;
-  }
-
-  function hostHasSize(el){
-    if(!el) return false;
-    var w = el.offsetWidth, h = el.offsetHeight;
-    return (w>0 && h>0);
-  }
-
-  // Wrap startCameraAuto if already defined, else define a lazy starter
-  function wrapStarter(){
-    var oldStart = window.startCameraAuto;
-    window.startCameraAuto = async function(){
-      var host = ensureCamHost();
-      // Wait layout tick
-      await new Promise(function(r){ setTimeout(r, 60); });
-      if(!hostHasSize(host)){
-        host.style.minHeight = '260px';
-        host.style.display = 'block';
-      }
-      try{
-        if (typeof oldStart === 'function') {
-          await oldStart();
-        }
-      }catch(e){
-        alert("Quagga init (güvenli mod) hatası: " + e);
-      }
-    };
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){
-      ensureCamHost();
-      wrapStarter();
-    });
-  } else {
-    ensureCamHost();
-    wrapStarter();
-  }
 })();
 </script>
 
