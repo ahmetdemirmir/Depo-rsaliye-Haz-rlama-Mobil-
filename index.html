@@ -677,6 +677,213 @@
       }
     };
   </script>
+<script src="https://unpkg.com/@ericblade/quagga2/dist/quagga.js"></script>
+
+<script>
+// ==== Quagga2 Entegrasyonu (EAN performansı için, non-invasive) ====
+(function(){
+  var quaggaRunning = false;
+  var videoDevices = [];
+  var currentDeviceIndex = 0;
+  var lastCode = null, lastHitAt = 0;
+  var autoRestartCamera = true; // mevcut akışla uyumlu
+  var cameraHost = document.getElementById('camera');
+  var barcodeInput = document.getElementById('barcodeInput') || document.querySelector('input[type="text"], input[autocomplete="off"]');
+
+  // Güvenli odak
+  function safeFocusBarcodeInput(){
+    if (!barcodeInput) return;
+    try { barcodeInput.removeAttribute('readonly'); barcodeInput.focus(); barcodeInput.select && barcodeInput.select(); } catch(e){}
+  }
+
+  // Basit beep; projede varsa onu kullan
+  var successSound = document.getElementById('successSound') || (function(){ var a = new Audio(); return a; })();
+
+  // EAN13 check-digit
+  function isValidEAN13(code){
+    if(!/^\d{13}$/.test(code)) return false;
+    var sum = 0;
+    for (var i=0;i<12;i++) sum += parseInt(code[i],10) * (i%2===0 ? 1 : 3);
+    var check = (10 - (sum % 10)) % 10;
+    return check === parseInt(code[12],10);
+  }
+
+  // Cihaz listesi
+  async function loadVideoInputs(){
+    var devices = await navigator.mediaDevices.enumerateDevices();
+    videoDevices = devices.filter(function(d){ return d.kind === 'videoinput'; });
+    return videoDevices.length > 0;
+  }
+
+  // Quagga config
+  function quaggaConfig(deviceId){
+    return {
+      inputStream: {
+        type: "LiveStream",
+        target: cameraHost,
+        constraints: {
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height:{ ideal: 720 }
+        },
+        area: { top: "20%", right: "10%", left: "10%", bottom: "20%" }
+      },
+      locator: { patchSize: "medium", halfSample: true },
+      numOfWorkers: Math.max(1, (navigator.hardwareConcurrency||2) - 1),
+      frequency: 8,
+      decoder: { readers: ["ean_reader","ean_8_reader","code_128_reader"] },
+      locate: true
+    };
+  }
+
+  // === Global modal watcher: tüm modallar kapandıktan sonra kamera aç ===
+  (function(){
+    var resumeAfter = false, debounce;
+    function isShown(node){
+      if(!node || node.nodeType!==1) return false;
+      if(node.hidden) return false;
+      var cs = getComputedStyle(node);
+      return !(cs.display==='none' || cs.visibility==='hidden' || parseFloat(cs.opacity)===0);
+    }
+    function countOpenModals(){
+      var nodes = document.querySelectorAll('.modal,[role="dialog"],.popup,#popupOverlay,#branchPopupOverlay,#errorOverlay,#searchPopup,#exportPopup,#importPopup,#overwritePopup,.swal2-container,.swal2-shown');
+      var c=0; nodes.forEach(function(n){ if(isShown(n)) c++; });
+      return c;
+    }
+    function tryResume(){
+      clearTimeout(debounce);
+      debounce = setTimeout(function(){
+        if(!resumeAfter) return;
+        if (countOpenModals()===0){
+          resumeAfter = false;
+          if (autoRestartCamera) startCameraAuto();
+        }
+      }, 160);
+    }
+    // dışa aç
+    window.__resumeGuard__ = {
+      arm: function(){ resumeAfter = true; },
+      pulse: tryResume
+    };
+    var mo1 = new MutationObserver(function(){ if(resumeAfter) tryResume(); });
+    var mo2 = new MutationObserver(function(){ if(resumeAfter) tryResume(); });
+    try {
+      mo1.observe(document.body,{subtree:true, attributes:true, attributeFilter:['class','style','hidden']});
+      mo2.observe(document.body,{subtree:true, childList:true});
+      window.addEventListener('focus', function(){ if(resumeAfter) tryResume(); }, true);
+    } catch(e){}
+  })();
+
+  // checkBarcode sarmalayıcı: mevcut fonksiyonu koruyup guard'ı aktive et
+  if (window.checkBarcode) {
+    var __origCheck = window.checkBarcode;
+    window.checkBarcode = function(code){
+      try { window.__resumeGuard__ && window.__resumeGuard__.arm(); } catch(e){}
+      return __origCheck.call(this, code);
+    };
+  } else {
+    // Projede checkBarcode yoksa no-op
+    window.checkBarcode = function(code){
+      try { window.__resumeGuard__ && window.__resumeGuard__.arm(); } catch(e){}
+      console.log('checkBarcode:', code);
+    };
+  }
+
+  // Quagga start
+  window.startCameraAuto = async function(){
+    autoRestartCamera = true;
+    if (quaggaRunning) return;
+    if (!cameraHost) cameraHost = document.getElementById('camera');
+    if (!cameraHost) { alert("Kamera konteyneri bulunamadı (#camera)."); return; }
+    if (!await loadVideoInputs()) { alert("Kamera bulunamadı!"); return; }
+
+    var savedId = localStorage.getItem("prefCamId");
+    if (savedId) {
+      var idx = videoDevices.findIndex(function(d){ return d.deviceId === savedId; });
+      if (idx >= 0) currentDeviceIndex = idx;
+    }
+    var devId = (videoDevices[currentDeviceIndex]||{}).deviceId;
+
+    cameraHost.style.display = "block";
+    if (barcodeInput) { barcodeInput.blur(); barcodeInput.setAttribute('readonly', true); }
+
+    Quagga.init(quaggaConfig(devId), function(err) {
+      if (err) { alert("Quagga init hatası: " + err); return; }
+      Quagga.start(); quaggaRunning = true;
+
+      try {
+        var track = Quagga.cameraAccess.getActiveTrack();
+        if (track && track.applyConstraints) {
+          track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(function(){});
+        }
+      } catch(e){}
+
+      Quagga.onDetected(function(result){
+        var code = result && result.codeResult && result.codeResult.code ? result.codeResult.code : null;
+        if(!code) return;
+        var now = Date.now();
+        if (code === lastCode && (now - lastHitAt) < 900) return;
+        lastCode = code; lastHitAt = now;
+        if (code.length === 13 && !isValidEAN13(code)) return;
+
+        stopQuagga().then(function(){
+          try { successSound.volume = 1.0; successSound.play(); } catch(e){}
+          if (navigator.vibrate) navigator.vibrate(35);
+          try { window.__resumeGuard__ && window.__resumeGuard__.arm(); } catch(e){}
+          try { window.checkBarcode(code); } catch(e){ console.warn('checkBarcode error', e); }
+        });
+      });
+    });
+  };
+
+  window.stopQuagga = function(){
+    return new Promise(function(resolve){
+      try {
+        if (quaggaRunning) { Quagga.stop(); quaggaRunning = false; }
+      } catch(e){}
+      if (cameraHost) cameraHost.style.display = "none";
+      if (barcodeInput) barcodeInput.removeAttribute('readonly');
+      resolve();
+    });
+  };
+
+  // Stop butonu
+  (function(){
+    var btn = document.getElementById('stopCameraBtn');
+    if (btn) {
+      var old = btn.onclick;
+      btn.onclick = async function(ev){
+        try { autoRestartCamera = false; } catch(e){}
+        await window.stopQuagga();
+        safeFocusBarcodeInput();
+        if (old) try { old.call(this, ev); } catch(e){}
+      };
+    }
+  })();
+
+  // Switch butonu
+  (function(){
+    var btn = document.getElementById('switchBtn');
+    if (btn) {
+      var old = btn.onclick;
+      btn.onclick = async function(ev){
+        if (!await loadVideoInputs()) { alert("Başka kamera yok."); return; }
+        currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
+        try { localStorage.setItem("prefCamId", videoDevices[currentDeviceIndex].deviceId); } catch(e){}
+        await window.stopQuagga();
+        setTimeout(window.startCameraAuto, 350);
+        if (old) try { old.call(this, ev); } catch(e){}
+      };
+    }
+  })();
+
+  // Eğer projedeki bir başlat butonu startCameraAuto'yu çağırıyorsa, bu fonksiyon override edildiği için Quagga ile çalışacak.
+  // Otomatik başlat isteyen sayfalar için (isteğe bağlı):
+  // document.addEventListener('DOMContentLoaded', function(){ /* window.startCameraAuto(); */ });
+})();
+</script>
+
 </body>
 </html>
 
