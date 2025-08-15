@@ -884,6 +884,129 @@
 })();
 </script>
 
+
+<script>
+// ==== Kamera İyileştirmeleri (camera-v3 ruhu, Quagga2 üzerinde) ====
+(function(){
+  if (!window.Quagga) return;
+
+  // İç state referansları (önceden tanımlı fonksiyonlarla entegre)
+  var __Q = {
+    running: false,
+    failCount: 0,
+    zoomLevel: 0, // 0=normal, 1=orta, 2=yüksek
+    paused: false,
+    torchOn: false
+  };
+
+  // Quagga instance paramlarını güncelleme helper'ı
+  function reconfigureAdaptive(){
+    try{
+      var cfg = Quagga._config; // mevcut init config'i
+      if (!cfg) return;
+      // ROI ve locator ayarlarını fail sayısına göre sıkılaştır
+      if (__Q.zoomLevel === 0){
+        cfg.inputStream.area = { top:"20%", right:"10%", left:"10%", bottom:"20%" };
+        cfg.locator.patchSize = "medium";
+        cfg.frequency = 8;
+      } else if (__Q.zoomLevel === 1){
+        cfg.inputStream.area = { top:"25%", right:"12%", left:"12%", bottom:"25%" };
+        cfg.locator.patchSize = "large";
+        cfg.frequency = 10;
+      } else {
+        cfg.inputStream.area = { top:"30%", right:"15%", left:"15%", bottom:"30%" };
+        cfg.locator.patchSize = "x-large";
+        cfg.frequency = 12;
+      }
+      Quagga.pause();
+      Quagga.init(cfg, function(err){
+        if(!err){ Quagga.start(); }
+      });
+    }catch(e){ /* sessiz */ }
+  }
+
+  // Başarısız kare sayaçları
+  try{
+    Quagga.onProcessed(function(result){
+      if (result && result.codeResult && result.codeResult.code){
+        __Q.failCount = 0;
+      } else {
+        __Q.failCount++;
+        if (__Q.failCount === 10 && __Q.zoomLevel < 1){ __Q.zoomLevel = 1; reconfigureAdaptive(); }
+        if (__Q.failCount === 25 && __Q.zoomLevel < 2){ __Q.zoomLevel = 2; reconfigureAdaptive(); }
+      }
+    });
+  }catch(e){}
+
+  // Başarı olduğunda geri al
+  function resetAdaptive(){
+    __Q.failCount = 0;
+    if (__Q.zoomLevel !== 0){
+      __Q.zoomLevel = 0;
+      reconfigureAdaptive();
+    }
+  }
+
+  // Soft Pause/Resume: sadece callback'i dondur
+  window.__scanPause__ = function(){ __Q.paused = true; };
+  window.__scanResume__ = function(){ __Q.paused = false; };
+
+  // onDetected proxy
+  try{
+    var _origOnDetected = Quagga.onDetected;
+    Quagga.onDetected = function(fn){
+      function proxy(res){
+        if (__Q.paused) return;
+        fn(res);
+      }
+      return _origOnDetected.call(Quagga, proxy);
+    };
+  }catch(e){}
+
+  // Torch toggle (mümkünse)
+  async function setTorch(on){
+    try{
+      var track = Quagga.cameraAccess.getActiveTrack();
+      if (!track) return false;
+      var capabilities = track.getCapabilities ? track.getCapabilities() : {};
+      if (!capabilities.torch) return false;
+      await track.applyConstraints({ advanced: [{ torch: !!on }] });
+      __Q.torchOn = !!on;
+      return true;
+    }catch(e){ return false; }
+  }
+
+  // Ortam karanlık ise otomatik torch denemesi (tek sefer)
+  (function autoTorchOnce(){
+    var tried = false;
+    function attempt(){ if (tried) return; tried = true; setTorch(true).catch(()=>{}); setTimeout(function(){ setTorch(false); }, 6000); }
+    setTimeout(attempt, 1500);
+  })();
+
+  // Global modal watcher ile soft pause entegrasyonu
+  (function(){
+    var gm = window.__resumeGuard__;
+    if (!gm) return;
+    var _pulse = gm.pulse;
+    gm.pulse = function(){
+      try{
+        var nodes = document.querySelectorAll('.modal,[role="dialog"],.popup,.swal2-container,.swal2-shown,#popupOverlay,#branchPopupOverlay,#errorOverlay,#searchPopup,#exportPopup,#importPopup,#overwritePopup');
+        var any = false;
+        nodes.forEach(function(n){
+          var cs = getComputedStyle(n);
+          if(!(n.hidden || cs.display==='none' || cs.visibility==='hidden' || parseFloat(cs.opacity)===0)){ any = true; }
+        });
+        if (any) window.__scanPause__(); else window.__scanResume__();
+      }catch(e){}
+      return _pulse.apply(this, arguments);
+    };
+  })();
+
+  // Başarılı okuma sonrası adaptif reset
+  try{ document.addEventListener('barcode-detected', resetAdaptive); }catch(e){}
+})();
+</script>
+
 </body>
 </html>
 
