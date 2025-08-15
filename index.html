@@ -109,9 +109,31 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
-<style id="cam-clean-style">
-  #camera{width:100%;max-width:640px;min-height:240px;background:#000;margin:auto;}
-  #camera video, #camera canvas { image-rendering: crisp-edges; image-rendering: -webkit-optimize-contrast; transform:none!important; }
+
+
+
+<style id="cam-ui-stable">
+  #camera{
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+    height: 360px;
+    margin: 12px auto;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    display: none;
+  }
+  #camera video, #camera canvas, #camera #interactive{
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+  @media (max-width: 480px){
+    #camera{ height: 280px; }
+  }
 </style>
 
 </head>
@@ -759,10 +781,10 @@
           resumeAfter = false;
           if (autoRestartCamera) startCameraAuto();
         }
-      }, 160);
+      }, 300);
     }
     window.__resumeGuard__ = {
-      arm: function(){ resumeAfter = true; },
+      arm: function(){ resumeAfter = true; this.t = Date.now(); },
       pulse: tryResume
     };
     var mo1 = new MutationObserver(function(){ if(resumeAfter) tryResume(); });
@@ -793,7 +815,7 @@
     autoRestartCamera = true;
     if (!cameraHost) cameraHost = document.getElementById('camera');
     if (!cameraHost) { alert("Kamera konteyneri yok (#camera)."); return; }
-    cameraHost.style.display = "block";
+    cameraHost.style.display = "block"; cameraHost.scrollIntoView({behavior:"smooth", block:"center"});
     // layout tick
     await new Promise(function(r){ setTimeout(r, 60); });
     if (quaggaRunning) return;
@@ -840,7 +862,7 @@
   window.stopQuagga = function(){
     return new Promise(function(resolve){
       try { if (quaggaRunning) { Quagga.stop(); quaggaRunning = false; } } catch(e){}
-      if (cameraHost) cameraHost.style.display = "none";
+      if (cameraHost){ cameraHost.style.display = "none"; try{ cameraHost.innerHTML=""; }catch(e){} }
       if (barcodeInput) barcodeInput.removeAttribute('readonly');
       resolve();
     });
