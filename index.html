@@ -874,6 +874,65 @@
 })();
 </script>
 
+
+<script id="camera-starter-binder">
+(function(){
+  // Provide a manual hook too
+  window.openCameraNow = function(){ try{ startCameraAuto && startCameraAuto(); }catch(e){ alert("Kamera başlatılamadı: " + e); } };
+
+  // Candidate IDs for a "start camera" button
+  var IDS = ["startCameraBtn","startCamera","btnCamera","openCamera","cameraStart","startCameraAuto","btnOpenCamera","kameraAc","kameraBaslat","kamerayiAc"];
+  function bindById(){
+    IDS.forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el) return;
+      if(el.__camBinder) return;
+      var old = el.onclick;
+      el.onclick = function(ev){
+        try{ startCameraAuto && startCameraAuto(); }catch(e){ alert("Kamera başlatılamadı: " + e); }
+        if (old) try{ old.call(this, ev); }catch(e){}
+      };
+      el.__camBinder = true;
+    });
+  }
+
+  // Text-based matching (avoid the "Kamerayı Değiştir" switch)
+  function matchAsStart(el){
+    if(!el) return false;
+    var t = (el.innerText || el.textContent || "").toLowerCase();
+    if(!t) return false;
+    if(t.includes("değiştir")) return false;
+    return t.includes("kamera") || t.includes("kamerayı aç") || t.includes("kamera aç") || t.includes("kamera başlat");
+  }
+
+  function bindByText(){
+    var btns = document.querySelectorAll('button, .btn, [role="button"]');
+    btns.forEach(function(el){
+      if(el.__camBinder) return;
+      if(!matchAsStart(el)) return;
+      var old = el.onclick;
+      el.addEventListener('click', function onStart(ev){
+        // Prevent binding to switch button accidentally
+        if(!matchAsStart(el)) return;
+        try{ startCameraAuto && startCameraAuto(); }catch(e){ alert("Kamera başlatılamadı: " + e); }
+        // old handler as well
+        if (old) try{ old.call(el, ev); }catch(e){}
+      }, { passive:true });
+      el.__camBinder = true;
+    });
+  }
+
+  // Initial bind + observe DOM changes (for SPA/late render UIs)
+  function bindAll(){ bindById(); bindByText(); }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindAll);
+  } else { bindAll(); }
+
+  var mo = new MutationObserver(function(){ bindAll(); });
+  try{ mo.observe(document.body, {subtree:true, childList:true}); }catch(e){}
+})();
+</script>
+
 </body>
 </html>
 
