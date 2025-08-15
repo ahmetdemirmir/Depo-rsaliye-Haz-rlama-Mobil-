@@ -108,6 +108,12 @@
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+<style id="cam-safety-style">
+  #camera{width:100%;max-width:640px;min-height:240px;background:#000;margin:auto;}
+  #camera video, #camera canvas { image-rendering: crisp-edges; image-rendering: -webkit-optimize-contrast; transform:none!important; }
+</style>
+
 </head>
 <body>
   <div>
@@ -885,125 +891,59 @@
 </script>
 
 
-<script>
-// ==== Kamera İyileştirmeleri (camera-v3 ruhu, Quagga2 üzerinde) ====
+<script id="cam-safety-wrap">
 (function(){
-  if (!window.Quagga) return;
-
-  // İç state referansları (önceden tanımlı fonksiyonlarla entegre)
-  var __Q = {
-    running: false,
-    failCount: 0,
-    zoomLevel: 0, // 0=normal, 1=orta, 2=yüksek
-    paused: false,
-    torchOn: false
-  };
-
-  // Quagga instance paramlarını güncelleme helper'ı
-  function reconfigureAdaptive(){
-    try{
-      var cfg = Quagga._config; // mevcut init config'i
-      if (!cfg) return;
-      // ROI ve locator ayarlarını fail sayısına göre sıkılaştır
-      if (__Q.zoomLevel === 0){
-        cfg.inputStream.area = { top:"20%", right:"10%", left:"10%", bottom:"20%" };
-        cfg.locator.patchSize = "medium";
-        cfg.frequency = 8;
-      } else if (__Q.zoomLevel === 1){
-        cfg.inputStream.area = { top:"25%", right:"12%", left:"12%", bottom:"25%" };
-        cfg.locator.patchSize = "large";
-        cfg.frequency = 10;
-      } else {
-        cfg.inputStream.area = { top:"30%", right:"15%", left:"15%", bottom:"30%" };
-        cfg.locator.patchSize = "x-large";
-        cfg.frequency = 12;
-      }
-      Quagga.pause();
-      Quagga.init(cfg, function(err){
-        if(!err){ Quagga.start(); }
-      });
-    }catch(e){ /* sessiz */ }
-  }
-
-  // Başarısız kare sayaçları
-  try{
-    Quagga.onProcessed(function(result){
-      if (result && result.codeResult && result.codeResult.code){
-        __Q.failCount = 0;
-      } else {
-        __Q.failCount++;
-        if (__Q.failCount === 10 && __Q.zoomLevel < 1){ __Q.zoomLevel = 1; reconfigureAdaptive(); }
-        if (__Q.failCount === 25 && __Q.zoomLevel < 2){ __Q.zoomLevel = 2; reconfigureAdaptive(); }
-      }
-    });
-  }catch(e){}
-
-  // Başarı olduğunda geri al
-  function resetAdaptive(){
-    __Q.failCount = 0;
-    if (__Q.zoomLevel !== 0){
-      __Q.zoomLevel = 0;
-      reconfigureAdaptive();
+  function ensureCamHost(){
+    var el = document.getElementById('camera');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'camera';
+      el.style.cssText = 'width:100%;max-width:640px;min-height:240px;background:#000;margin:auto;';
+      document.body.appendChild(el);
+    } else {
+      // enforce size
+      if(!el.style.minHeight) el.style.minHeight = '240px';
+      if(!el.style.background) el.style.background = '#000';
     }
+    return el;
   }
 
-  // Soft Pause/Resume: sadece callback'i dondur
-  window.__scanPause__ = function(){ __Q.paused = true; };
-  window.__scanResume__ = function(){ __Q.paused = false; };
+  function hostHasSize(el){
+    if(!el) return false;
+    var w = el.offsetWidth, h = el.offsetHeight;
+    return (w>0 && h>0);
+  }
 
-  // onDetected proxy
-  try{
-    var _origOnDetected = Quagga.onDetected;
-    Quagga.onDetected = function(fn){
-      function proxy(res){
-        if (__Q.paused) return;
-        fn(res);
+  // Wrap startCameraAuto if already defined, else define a lazy starter
+  function wrapStarter(){
+    var oldStart = window.startCameraAuto;
+    window.startCameraAuto = async function(){
+      var host = ensureCamHost();
+      // Wait layout tick
+      await new Promise(function(r){ setTimeout(r, 60); });
+      if(!hostHasSize(host)){
+        host.style.minHeight = '260px';
+        host.style.display = 'block';
       }
-      return _origOnDetected.call(Quagga, proxy);
+      try{
+        if (typeof oldStart === 'function') {
+          await oldStart();
+        }
+      }catch(e){
+        alert("Quagga init (güvenli mod) hatası: " + e);
+      }
     };
-  }catch(e){}
-
-  // Torch toggle (mümkünse)
-  async function setTorch(on){
-    try{
-      var track = Quagga.cameraAccess.getActiveTrack();
-      if (!track) return false;
-      var capabilities = track.getCapabilities ? track.getCapabilities() : {};
-      if (!capabilities.torch) return false;
-      await track.applyConstraints({ advanced: [{ torch: !!on }] });
-      __Q.torchOn = !!on;
-      return true;
-    }catch(e){ return false; }
   }
 
-  // Ortam karanlık ise otomatik torch denemesi (tek sefer)
-  (function autoTorchOnce(){
-    var tried = false;
-    function attempt(){ if (tried) return; tried = true; setTorch(true).catch(()=>{}); setTimeout(function(){ setTorch(false); }, 6000); }
-    setTimeout(attempt, 1500);
-  })();
-
-  // Global modal watcher ile soft pause entegrasyonu
-  (function(){
-    var gm = window.__resumeGuard__;
-    if (!gm) return;
-    var _pulse = gm.pulse;
-    gm.pulse = function(){
-      try{
-        var nodes = document.querySelectorAll('.modal,[role="dialog"],.popup,.swal2-container,.swal2-shown,#popupOverlay,#branchPopupOverlay,#errorOverlay,#searchPopup,#exportPopup,#importPopup,#overwritePopup');
-        var any = false;
-        nodes.forEach(function(n){
-          var cs = getComputedStyle(n);
-          if(!(n.hidden || cs.display==='none' || cs.visibility==='hidden' || parseFloat(cs.opacity)===0)){ any = true; }
-        });
-        if (any) window.__scanPause__(); else window.__scanResume__();
-      }catch(e){}
-      return _pulse.apply(this, arguments);
-    };
-  })();
-
-  // Başarılı okuma sonrası adaptif reset
-  try{ document.addEventListener('barcode-detected', resetAdaptive); }catch(e){}
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){
+      ensureCamHost();
+      wrapStarter();
+    });
+  } else {
+    ensureCamHost();
+    wrapStarter();
+  }
 })();
 </script>
 
