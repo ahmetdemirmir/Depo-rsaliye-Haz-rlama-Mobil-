@@ -671,7 +671,7 @@
     const searchResults = document.getElementById('searchResults');
     document.getElementById('openSearchBtn').onclick = () => {
       searchPopup.style.display = "flex";
-      searchInput.value = "";
+      searchInput.setAttribute('inputmode','numeric'); searchInput.setAttribute('pattern','[0-9]*'); searchInput.value = "";
       renderSearchResults("");
       setTimeout(() => { searchInput.focus(); }, 250);
     };
@@ -681,12 +681,16 @@
       if (autoRestartCamera) setTimeout(startCameraAuto, 250);
     }
     function renderSearchResults(val) {
-      let v = val.trim().toLowerCase();
-      searchResults.innerHTML = "";
-      let filtered = products.filter(p =>
-        (p.Barkodu && (p.Barkodu === v || (v.length === 6 && p.Barkodu.endsWith(v)))) ||
-        (p.Adi && p.Adi.toLowerCase().includes(v))
-      );
+      let v = (val || '').trim();
+      const vLower = v.toLowerCase();
+      searchResults.innerHTML = '';
+      let filtered = products.filter(p => {
+        const barkodStr = String(p.Barkodu || '');
+        return (
+          (barkodStr && (barkodStr === v || (v.length === 6 && barkodStr.endsWith(v)))) ||
+          (p.Adi && p.Adi.toLowerCase().includes(vLower))
+        );
+      });
       if (!filtered.length) {
         searchResults.innerHTML = '<li>Ürün bulunamadı</li>';
         return;
