@@ -21,11 +21,11 @@
     .branch-tag.pending { background: #bdc3c7; color: #2c3e50; }
     .branch-tag.approved { background: #27ae60; color: white; }
     .branch-tag.rejected { background: #e74c3c; color: white; }
-    #popupOverlay, #branchPopupOverlay, #errorOverlay, #searchPopup, #exportPopup, #importPopup, #overwritePopup {
+    #popupOverlay, #branchPopupOverlay, #errorOverlay, #searchPopup, #exportPopup, #importPopup, #overwritePopup, #mergePopup {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 999;
     }
-    #popupContent, #branchPopupContent, #errorContent, #searchContent, #exportContent, #importContent, #overwriteContent {
+    #popupContent, #branchPopupContent, #errorContent, #searchContent, #exportContent, #importContent, #overwriteContent, #mergeContent {
       background: #ffffff; padding: 30px; border-radius: 16px; width: 90%; max-width: 550px;
       text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.3);
     }
@@ -153,6 +153,7 @@
     <!-- === EKLEMELER (EXPORT/IMPORT) === -->
     <button id="exportBtn" style="background:#ffd700;color:#222;">İlerlemeyi Dışa Aktar</button>
     <button id="importBtn" style="background:#1abc9c;color:#fff;">İlerleme Yükle</button>
+    <button id="mergeBtn" style="background:#9b59b6;color:#fff;">İlerlemeleri Birleştir</button>
   </div>
   <input type="text" id="manualBarcode" placeholder="Barkodu yazıp Enter’a bas" onkeypress="if(event.key==='Enter'){checkBarcode(this.value)}"><br>
   <div id="camera" style="display:none;"></div>
@@ -219,6 +220,19 @@
       <button onclick="loadImport()">Yükle</button>
       <button onclick="closeImportPopup()">Kapat</button>
     </div>
+  <div id="mergePopup">
+    <div id="mergeContent">
+      <h2>İlerlemeleri Birleştir</h2>
+      <p>İki farklı dışa aktarılmış <b>JSON</b> dosyasını seçin. Onayladığınız/işaretlediğiniz ürünler kaybolmadan <b>birleştirilir</b>.</p>
+      <input type="file" id="mergeFileA" accept=".json" style="margin:8px 0;">
+      <input type="file" id="mergeFileB" accept=".json" style="margin:8px 0;">
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:12px;">
+        <button id="doMergeBtn" style="background:#9b59b6;color:#fff;">Birleştir ve Uygula</button>
+        <button onclick="closeMergePopup()">Kapat</button>
+      </div>
+    </div>
+  </div>
+
   </div>
   <!-- === YENİ: OVERWRITE/RESET POPUP === -->
   <div id="overwritePopup">
@@ -249,6 +263,71 @@
     const errorSound = document.getElementById('errorSound');
     document.querySelector('.btnfile').onclick = function(){ document.getElementById('fileInput').click(); };
     // ====================== EXPORT/IMPORT YENİ =========================
+    // -- Merge Progress
+    document.getElementById('mergeBtn').onclick = () => {
+      document.getElementById('mergePopup').style.display = 'flex';
+    };
+    function closeMergePopup(){ document.getElementById('mergePopup').style.display = 'none'; }
+    function pickStatus(a, b){
+      const rank = { 'approved': 2, 'rejected': 1, 'pending': 0, undefined:0, null:0, '':0 };
+      const ra = rank[a]; const rb = rank[b];
+      if (ra >= rb) return a || 'pending';
+      return b || 'pending';
+    }
+    function mergeProductsByBarkod(listA, listB){
+      const branches = ["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"];
+      const map = new Map();
+      const clone = obj => JSON.parse(JSON.stringify(obj));
+      function addList(arr){
+        (arr||[]).forEach(p => {
+          const key = String(p.Barkodu || '').trim();
+          if(!key) return;
+          if(!map.has(key)){
+            const base = clone(p);
+            base.scannedStatus = base.scannedStatus || {};
+            branches.forEach(br => { if(base.scannedStatus[br] == null) base.scannedStatus[br] = 'pending'; });
+            map.set(key, base);
+          } else {
+            const tgt = map.get(key);
+            ["Adi","Adet","Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"].forEach(f => {
+              if (tgt[f] == null || tgt[f] === "" || tgt[f] === 0) { if (p[f] != null && p[f] !== "") tgt[f] = p[f]; }
+            });
+            const aSS = tgt.scannedStatus || {};
+            const bSS = (p.scannedStatus || {});
+            ["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"].forEach(br => {
+              aSS[br] = pickStatus(aSS[br], bSS[br]);
+            });
+            tgt.scannedStatus = aSS;
+          }
+        });
+      }
+      addList(listA);
+      addList(listB);
+      return Array.from(map.values());
+    }
+    document.getElementById('doMergeBtn').onclick = async () => {
+      const fA = document.getElementById('mergeFileA').files[0];
+      const fB = document.getElementById('mergeFileB').files[0];
+      if(!fA || !fB) { alert("Lütfen iki JSON dosyası seçin."); return; }
+      try {
+        const read = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsText(f); });
+        const [tA, tB] = await Promise.all([read(fA), read(fB)]);
+        const jA = JSON.parse(tA);
+        const jB = JSON.parse(tB);
+        const listA = Array.isArray(jA) ? jA : (jA.products || []);
+        const listB = Array.isArray(jB) ? jB : (jB.products || []);
+        const merged = mergeProductsByBarkod(listA, listB);
+        products = merged;
+        renderProducts();
+        saveProgress();
+        closeMergePopup();
+        alert("İlerlemeler başarıyla birleştirildi ve uygulandı.");
+      } catch(err){
+        console.error(err);
+        alert("Dosyalar okunamadı veya JSON formatı hatalı.");
+      }
+    };
+
     // -- localStorage Key
     const STORAGE_KEY = "demirkirtasiye_transfer_v1";
     // -- Export
@@ -471,7 +550,24 @@
         </span>`;
       });
       document.getElementById('progressBar').innerHTML = barHtml;
-      products.forEach(p => {
+      
+      // --- Sıralama: Tamamlananlar en alta, eksikler üstte (0 onay > kısmi onay > tam onay)
+      const ordered = products.slice().sort((a,b) => {
+        const branches = ["Ataevler","Merkez","Fethiye","Topkapı","Depoda Kalan"];
+        function score(p){
+          const req = branches.filter(br => p[br] && p[br] > 0);
+          const approved = req.filter(br => (p.scannedStatus||{})[br] === 'approved').length;
+          const complete = (req.length>0 && approved === req.length);
+          // primary: incomplete(0) first, complete(1) last
+          // secondary: fewer approvals first (so "hiç işaretli olmayanlar" en üstte)
+          return [complete ? 1 : 0, approved];
+        }
+        const sa = score(a), sb = score(b);
+        if (sa[0] !== sb[0]) return sa[0] - sb[0];
+        if (sa[1] !== sb[1]) return sa[1] - sb[1];
+        return 0;
+      });
+      ordered.forEach(p => {
         if (currentFilter && (!p[currentFilter] || p[currentFilter] === 0)) return;
         if (unassignedFilter) {
           const hasPending = Object.keys(p.scannedStatus).length === 0 || Object.values(p.scannedStatus).includes('pending');
